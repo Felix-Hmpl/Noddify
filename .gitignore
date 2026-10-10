@@ -1,0 +1,13 @@
+# Build output
+bin/
+*.prg
+*.iq
+*.prg.debug.xml
+
+# Developer signing key - never commit
+*.der
+*.pem
+
+# Editor
+.vscode/*
+!.vscode/launch.json
