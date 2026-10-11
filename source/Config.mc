@@ -1,0 +1,15 @@
+import Toybox.Lang;
+
+// App-wide defaults. The learning model will take over the tunable ones in step 4.
+module Config {
+
+    // Debug builds (simulator, F5) calibrate quickly so testing doesn't take 5 minutes.
+    (:debug) const CALIBRATION_SECONDS = 30;
+    (:release) const CALIBRATION_SECONDS = 300;
+
+    // Movement below baseline x this factor counts as still.
+    const STILL_FACTOR = 1.5;
+
+    // Stillness needed before an alert is considered (T_still). Used for the stillness bar for now.
+    const STILL_TARGET_SECONDS = 120;
+}
