@@ -5,7 +5,7 @@ import Toybox.WatchUi;
 
 // Reads the watch sensors and ticks the SessionMonitor once per second with the heart rate,
 // the movement since the last tick and the new beat intervals.
-class SensorManager {
+class SensorManager extends DataSource {
 
     const ACCEL_SAMPLE_RATE = 25;
 
@@ -15,6 +15,7 @@ class SensorManager {
     private var _pendingIntervals as Array<Number> = [];
 
     function initialize(monitor as SessionMonitor) {
+        DataSource.initialize();
         _monitor = monitor;
     }
 
