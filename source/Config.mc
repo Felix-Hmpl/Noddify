@@ -7,6 +7,10 @@ module Config {
     (:debug) const CALIBRATION_SECONDS = 30;
     (:release) const CALIBRATION_SECONDS = 300;
 
+    // Debug scenarios: scenario seconds per real second, and the menu id for the real sensors.
+    (:debug) const SCENARIO_SPEED = 5;
+    (:debug) const REAL_SENSORS_ID = -1;
+
     // Movement below baseline x this factor counts as still.
     const STILL_FACTOR = 1.5;
 

@@ -1,8 +1,10 @@
+import Toybox.Application;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-// Live screen: calibration progress or baseline, current heart rate, stillness bar and HRV.
+// Live screen: calibration progress or baseline, current heart rate, stillness bar and HRV,
+// plus the scenario name when a debug scenario replaces the sensors.
 class MainView extends WatchUi.View {
 
     const BAR_HEIGHT = 8;
@@ -10,12 +12,17 @@ class MainView extends WatchUi.View {
 
     private var _monitor as SessionMonitor;
 
-    function initialize(monitor as SessionMonitor) {
+    function initialize() {
         View.initialize();
-        _monitor = monitor;
+        _monitor = getApp().getMonitor();
     }
 
     function onUpdate(dc as Dc) as Void {
+        // The app replaces the monitor when a debug scenario is selected.
+        var app = getApp();
+        _monitor = app.getMonitor();
+        var sourceLabel = app.getSourceLabel();
+
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
@@ -31,6 +38,9 @@ class MainView extends WatchUi.View {
         var smallHeight = dc.getFontHeight(Graphics.FONT_XTINY);
         var gap = h * 3 / 100;
         var total = headerHeight + hrHeight + smallHeight + gap + smallHeight + BAR_LABEL_GAP + BAR_HEIGHT + gap + smallHeight;
+        if (sourceLabel != null) {
+            total += smallHeight;
+        }
         var y = (h - total) / 2;
 
         drawHeader(dc, cx, y);
@@ -55,6 +65,16 @@ class MainView extends WatchUi.View {
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Hrv) + " " + formatOptional(heart.getRmssd()) + " ms", Graphics.TEXT_JUSTIFY_CENTER);
+
+        if (sourceLabel != null) {
+            y += smallHeight;
+            dc.setColor(Graphics.COLOR_PURPLE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, y, Graphics.FONT_XTINY, sourceLabel, Graphics.TEXT_JUSTIFY_CENTER);
+        }
+    }
+
+    private function getApp() as NoddifyApp {
+        return Application.getApp() as NoddifyApp;
     }
 
     private function drawHeader(dc as Dc, cx as Number, y as Number) as Void {
