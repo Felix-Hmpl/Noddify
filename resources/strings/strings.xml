@@ -1,4 +1,9 @@
 <strings>
     <string id="AppName">Noddify</string>
     <string id="WaitingForHr">Waiting for HR...</string>
+    <string id="Calibrating">Calibrating</string>
+    <string id="Baseline">Base</string>
+    <string id="Average">Avg</string>
+    <string id="Still">Still</string>
+    <string id="Hrv">HRV</string>
 </strings>

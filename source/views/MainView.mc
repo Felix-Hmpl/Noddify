@@ -1,49 +1,105 @@
 import Toybox.Graphics;
 import Toybox.Lang;
-import Toybox.Sensor;
 import Toybox.WatchUi;
 
-// Live screen. For now it only shows the current heart rate.
+// Live screen: calibration progress or baseline, current heart rate, stillness bar and HRV.
 class MainView extends WatchUi.View {
 
-    private var _heartRate as Number? = null;
+    const BAR_HEIGHT = 8;
+    const BAR_LABEL_GAP = 4;
 
-    function initialize() {
+    private var _monitor as SessionMonitor;
+
+    function initialize(monitor as SessionMonitor) {
         View.initialize();
-    }
-
-    function onShow() as Void {
-        Sensor.setEnabledSensors([Sensor.SENSOR_HEARTRATE]);
-        Sensor.enableSensorEvents(method(:onSensor));
-    }
-
-    function onHide() as Void {
-        Sensor.enableSensorEvents(null);
-    }
-
-    function onSensor(info as Sensor.Info) as Void {
-        _heartRate = info.heartRate;
-        WatchUi.requestUpdate();
+        _monitor = monitor;
     }
 
     function onUpdate(dc as Dc) as Void {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
-        var cx = dc.getWidth() / 2;
-        var cy = dc.getHeight() / 2;
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var cx = w / 2;
+        var heart = _monitor.heart;
+
+        // Rows are stacked by their font heights and the whole block is centered, so rows
+        // can't overlap regardless of the device's font sizes.
+        var headerHeight = dc.getFontHeight(Graphics.FONT_TINY);
+        var hrHeight = dc.getFontHeight(Graphics.FONT_NUMBER_HOT);
+        var smallHeight = dc.getFontHeight(Graphics.FONT_XTINY);
+        var gap = h * 3 / 100;
+        var total = headerHeight + hrHeight + smallHeight + gap + smallHeight + BAR_LABEL_GAP + BAR_HEIGHT + gap + smallHeight;
+        var y = (h - total) / 2;
+
+        drawHeader(dc, cx, y);
+        y += headerHeight;
+
+        var hr = heart.getCurrentHr();
+        if (hr == null || hr <= 0) {
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, y + hrHeight / 2, Graphics.FONT_SMALL, str(Rez.Strings.WaitingForHr), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else {
+            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, y, Graphics.FONT_NUMBER_HOT, hr.toString(), Graphics.TEXT_JUSTIFY_CENTER);
+        }
+        y += hrHeight;
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - 90, Graphics.FONT_SMALL, WatchUi.loadResource(Rez.Strings.AppName), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Average) + " " + formatOptional(heart.getAverageHr()) + " bpm", Graphics.TEXT_JUSTIFY_CENTER);
+        y += smallHeight + gap;
 
-        if (_heartRate != null) {
-            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy, Graphics.FONT_NUMBER_HOT, _heartRate.toString(), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy + 55, Graphics.FONT_TINY, "bpm", Graphics.TEXT_JUSTIFY_CENTER);
+        drawStillness(dc, cx, y, w * 55 / 100);
+        y += smallHeight + BAR_LABEL_GAP + BAR_HEIGHT + gap;
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Hrv) + " " + formatOptional(heart.getRmssd()) + " ms", Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    private function drawHeader(dc as Dc, cx as Number, y as Number) as Void {
+        var calibrator = _monitor.calibrator;
+        var baseline = calibrator.getBaseline();
+        var text;
+        if (baseline == null) {
+            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+            text = str(Rez.Strings.Calibrating) + " " + formatDuration(calibrator.getElapsed()) + "/" + formatDuration(calibrator.getDuration());
         } else {
-            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy, Graphics.FONT_SMALL, WatchUi.loadResource(Rez.Strings.WaitingForHr), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+            text = str(Rez.Strings.Baseline) + " " + baseline.hr.format("%d") + " bpm";
         }
+        dc.drawText(cx, y, Graphics.FONT_TINY, text, Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // Still-time label with a bar below it filling up towards the stillness target. y is the label's top.
+    private function drawStillness(dc as Dc, cx as Number, y as Number, width as Number) as Void {
+        var still = _monitor.movement.getStillSeconds();
+        var target = Config.STILL_TARGET_SECONDS;
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Still) + " " + formatDuration(still), Graphics.TEXT_JUSTIFY_CENTER);
+
+        var barY = y + dc.getFontHeight(Graphics.FONT_XTINY) + BAR_LABEL_GAP;
+        var left = cx - width / 2;
+        var fill = still >= target ? width : width * still / target;
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.fillRoundedRectangle(left, barY, width, BAR_HEIGHT, BAR_HEIGHT / 2);
+        if (fill > 0) {
+            dc.setColor(still >= target ? Graphics.COLOR_ORANGE : Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
+            dc.fillRoundedRectangle(left, barY, fill, BAR_HEIGHT, BAR_HEIGHT / 2);
+        }
+    }
+
+    private function str(id as ResourceId) as String {
+        return WatchUi.loadResource(id) as String;
+    }
+
+    private function formatDuration(seconds as Number) as String {
+        return (seconds / 60).toString() + ":" + (seconds % 60).format("%02d");
+    }
+
+    private function formatOptional(value as Float?) as String {
+        return value == null ? "--" : value.format("%d");
     }
 }
