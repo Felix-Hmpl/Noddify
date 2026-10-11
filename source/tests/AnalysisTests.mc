@@ -249,7 +249,7 @@ function calibrationWaitsForEnoughHeartRate(logger as Logger) as Boolean {
 
 (:test)
 function monitorSetsMovementThresholdAfterCalibration(logger as Logger) as Boolean {
-    var monitor = new SessionMonitor(5);
+    var monitor = new SessionMonitor(5, new RecordingVibrator());
     for (var i = 0; i < 5; i++) {
         monitor.tick(70, 20.0, []);
     }

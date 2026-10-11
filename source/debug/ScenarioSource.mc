@@ -31,7 +31,7 @@ class ScenarioSource extends DataSource {
     }
 
     function start() as Void {
-        Math.srand(SEED);
+        seedRandom();
         var timer = new Timer.Timer();
         timer.start(method(:onTick), 1000 / Config.SCENARIO_SPEED, true);
         _timer = timer;
@@ -45,12 +45,21 @@ class ScenarioSource extends DataSource {
         }
     }
 
+    function seedRandom() as Void {
+        Math.srand(SEED);
+    }
+
     function onTick() as Void {
+        step();
+        WatchUi.requestUpdate();
+    }
+
+    // Plays one scenario second into the monitor. The tests call this directly.
+    function step() as Void {
         var sample = _scenario.sample(_second);
         var hr = Math.round(sample.hr + random(-1.0, 1.0)).toNumber();
         _monitor.tick(hr, nextMovement(sample.fidgetsPerMinute), nextBeatIntervals(sample.hr, sample.hrv));
         _second++;
-        WatchUi.requestUpdate();
     }
 
     // Resting noise, with fidget bursts started at random at the scripted rate.

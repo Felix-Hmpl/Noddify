@@ -3,8 +3,9 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-// Live screen: calibration progress or baseline, current heart rate, stillness bar and HRV,
-// plus the scenario name when a debug scenario replaces the sensors.
+// Live screen: detector state or calibration progress, current heart rate, average and baseline,
+// stillness bar and HRV, plus the scenario name when a debug scenario replaces the sensors.
+// Turns red while an alert is active.
 class MainView extends WatchUi.View {
 
     const BAR_HEIGHT = 8;
@@ -23,13 +24,16 @@ class MainView extends WatchUi.View {
         _monitor = app.getMonitor();
         var sourceLabel = app.getSourceLabel();
 
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        var alerting = _monitor.isAlerting();
+        var background = alerting ? Graphics.COLOR_DK_RED : Graphics.COLOR_BLACK;
+        dc.setColor(background, background);
         dc.clear();
 
         var w = dc.getWidth();
         var h = dc.getHeight();
         var cx = w / 2;
         var heart = _monitor.heart;
+        var baseline = _monitor.calibrator.getBaseline();
 
         // Rows are stacked by their font heights and the whole block is centered, so rows
         // can't overlap regardless of the device's font sizes.
@@ -51,20 +55,29 @@ class MainView extends WatchUi.View {
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, y + hrHeight / 2, Graphics.FONT_SMALL, str(Rez.Strings.WaitingForHr), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else {
-            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(alerting ? Graphics.COLOR_WHITE : Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, y, Graphics.FONT_NUMBER_HOT, hr.toString(), Graphics.TEXT_JUSTIFY_CENTER);
         }
         y += hrHeight;
 
+        var averageText = str(Rez.Strings.Average) + " " + formatOptional(heart.getAverageHr());
+        if (baseline != null) {
+            averageText += " / " + str(Rez.Strings.Baseline) + " " + baseline.hr.format("%d");
+        }
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Average) + " " + formatOptional(heart.getAverageHr()) + " bpm", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, averageText + " bpm", Graphics.TEXT_JUSTIFY_CENTER);
         y += smallHeight + gap;
 
         drawStillness(dc, cx, y, w * 55 / 100);
         y += smallHeight + BAR_LABEL_GAP + BAR_HEIGHT + gap;
 
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Hrv) + " " + formatOptional(heart.getRmssd()) + " ms", Graphics.TEXT_JUSTIFY_CENTER);
+        if (alerting) {
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.TapToDismiss), Graphics.TEXT_JUSTIFY_CENTER);
+        } else {
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Hrv) + " " + formatOptional(heart.getRmssd()) + " ms", Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
         if (sourceLabel != null) {
             y += smallHeight;
@@ -77,24 +90,36 @@ class MainView extends WatchUi.View {
         return Application.getApp() as NoddifyApp;
     }
 
+    // The detector state, or calibration progress while calibrating.
     private function drawHeader(dc as Dc, cx as Number, y as Number) as Void {
         var calibrator = _monitor.calibrator;
-        var baseline = calibrator.getBaseline();
+        var state = _monitor.detector.getState();
+        var color;
         var text;
-        if (baseline == null) {
-            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+        if (_monitor.isAlerting()) {
+            color = Graphics.COLOR_WHITE;
+            text = str(Rez.Strings.WakeUp);
+        } else if (state == STATE_CALIBRATING) {
+            color = Graphics.COLOR_YELLOW;
             text = str(Rez.Strings.Calibrating) + " " + formatDuration(calibrator.getElapsed()) + "/" + formatDuration(calibrator.getDuration());
+        } else if (state == STATE_DROWSY) {
+            color = Graphics.COLOR_ORANGE;
+            text = str(Rez.Strings.Drowsy);
+        } else if (state == STATE_COOLDOWN) {
+            color = Graphics.COLOR_BLUE;
+            text = str(Rez.Strings.Cooldown);
         } else {
-            dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
-            text = str(Rez.Strings.Baseline) + " " + baseline.hr.format("%d") + " bpm";
+            color = Graphics.COLOR_GREEN;
+            text = str(Rez.Strings.Awake);
         }
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_TINY, text, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     // Still-time label with a bar below it filling up towards the stillness target. y is the label's top.
     private function drawStillness(dc as Dc, cx as Number, y as Number, width as Number) as Void {
         var still = _monitor.movement.getStillSeconds();
-        var target = Config.STILL_TARGET_SECONDS;
+        var target = _monitor.detector.params.stillSeconds;
 
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Still) + " " + formatDuration(still), Graphics.TEXT_JUSTIFY_CENTER);

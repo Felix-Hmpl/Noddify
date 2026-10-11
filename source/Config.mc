@@ -13,7 +13,4 @@ module Config {
 
     // Movement below baseline x this factor counts as still.
     const STILL_FACTOR = 1.5;
-
-    // Stillness needed before an alert is considered (T_still). Used for the stillness bar for now.
-    const STILL_TARGET_SECONDS = 120;
 }

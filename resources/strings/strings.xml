@@ -2,6 +2,11 @@
     <string id="AppName">Noddify</string>
     <string id="WaitingForHr">Waiting for HR...</string>
     <string id="Calibrating">Calibrating</string>
+    <string id="Awake">Awake</string>
+    <string id="Drowsy">Drowsy</string>
+    <string id="Cooldown">Cooldown</string>
+    <string id="WakeUp">Wake up!</string>
+    <string id="TapToDismiss">Tap to dismiss</string>
     <string id="Baseline">Base</string>
     <string id="Average">Avg</string>
     <string id="Still">Still</string>

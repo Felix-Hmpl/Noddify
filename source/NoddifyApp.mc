@@ -11,7 +11,7 @@ class NoddifyApp extends Application.AppBase {
 
     function initialize() {
         AppBase.initialize();
-        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS);
+        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator());
         _source = new SensorManager(_monitor);
     }
 
@@ -40,7 +40,7 @@ class NoddifyApp extends Application.AppBase {
     (:debug)
     function selectSource(index as Number) as Void {
         _source.stop();
-        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS);
+        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator());
         if (index < 0) {
             _source = new SensorManager(_monitor);
             _sourceLabel = null;

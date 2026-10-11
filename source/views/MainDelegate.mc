@@ -1,3 +1,4 @@
+import Toybox.Application;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
@@ -8,12 +9,25 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
         BehaviorDelegate.initialize();
     }
 
-    // Debug builds: tapping the screen, pressing the top button or the menu action
-    // opens the data source menu.
-    (:debug)
+    // Tapping the screen or pressing the top button dismisses an active alert.
     function onSelect() as Boolean {
+        if ((Application.getApp() as NoddifyApp).getMonitor().acknowledgeAlert()) {
+            WatchUi.requestUpdate();
+            return true;
+        }
+        return onSelectWithoutAlert();
+    }
+
+    // Debug builds: without an alert, tapping opens the data source menu.
+    (:debug)
+    private function onSelectWithoutAlert() as Boolean {
         DataSourceMenu.show();
         return true;
+    }
+
+    (:release)
+    private function onSelectWithoutAlert() as Boolean {
+        return false;
     }
 
     (:debug)
