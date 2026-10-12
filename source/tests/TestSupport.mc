@@ -1,4 +1,5 @@
 import Toybox.Lang;
+import Toybox.Test;
 
 // Shared test helpers. Kept in classes, because the test runner would run (:test) functions as tests.
 
@@ -21,9 +22,20 @@ class RecordingVibrator extends Vibrator {
 (:test)
 class TestSupport {
 
-    // A session monitor with default parameters and a recording vibrator.
+    // A session monitor with default parameters, a recording vibrator and nothing saved.
     static function newMonitor(calibrationSeconds as Number) as SessionMonitor {
-        return new SessionMonitor(calibrationSeconds, new RecordingVibrator(), new Params());
+        return new SessionMonitor(calibrationSeconds, new RecordingVibrator(), new LearningModel(null), new EventLog(null));
+    }
+
+    // Calibrates a monitor at 74 bpm, then keeps it still at 60 bpm until the first alert fires.
+    static function runUntilAlert(monitor as SessionMonitor) as Void {
+        for (var i = 0; i < 1000 && monitor.getAlertCount() == 0; i++) {
+            monitor.tick(i < 10 ? 74 : 60, 6.0, []);
+        }
+    }
+
+    static function assertNear(actual as Numeric, expected as Numeric) as Void {
+        Test.assertMessage((actual - expected).abs() < 0.001, "expected " + expected + ", got " + actual);
     }
 
     // A calibrated feature snapshot with the inputs of the stillness/heart-rate rule.

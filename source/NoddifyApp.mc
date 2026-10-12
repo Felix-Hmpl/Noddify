@@ -4,8 +4,10 @@ import Toybox.WatchUi;
 
 class NoddifyApp extends Application.AppBase {
 
-    // Detection parameters, shared by every session the app runs.
-    private var _params as Params = new Params();
+    // Learned detection parameters and the event history, saved on the watch and shared by
+    // every session the app runs.
+    private var _learning as LearningModel = new LearningModel("learning");
+    private var _events as EventLog = new EventLog("events");
     private var _monitor as SessionMonitor;
     private var _source as DataSource;
     // Name of the scenario being played in place of the sensors, or null for the real sensors.
@@ -13,7 +15,7 @@ class NoddifyApp extends Application.AppBase {
 
     function initialize() {
         AppBase.initialize();
-        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator(), _params);
+        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator(), _learning, _events);
         _source = new SensorManager(_monitor);
     }
 
@@ -34,6 +36,10 @@ class NoddifyApp extends Application.AppBase {
         return _monitor;
     }
 
+    function getLearning() as LearningModel {
+        return _learning;
+    }
+
     function getSourceLabel() as String? {
         return _sourceLabel;
     }
@@ -42,7 +48,7 @@ class NoddifyApp extends Application.AppBase {
     (:debug)
     function selectSource(index as Number) as Void {
         _source.stop();
-        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator(), _params);
+        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator(), _learning, _events);
         if (index < 0) {
             _source = new SensorManager(_monitor);
             _sourceLabel = null;

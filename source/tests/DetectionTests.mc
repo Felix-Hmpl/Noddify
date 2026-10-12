@@ -239,7 +239,7 @@ function acknowledgeStopsEscalation(logger as Logger) as Boolean {
 (:test)
 function monitorVibratesOnAlert(logger as Logger) as Boolean {
     var vibrator = new RecordingVibrator();
-    var monitor = new SessionMonitor(5, vibrator, new Params());
+    var monitor = new SessionMonitor(5, vibrator, new LearningModel(null), new EventLog(null));
     for (var i = 0; i < 5; i++) {
         monitor.tick(74, 6.0, []);
     }

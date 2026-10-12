@@ -63,9 +63,23 @@ class Params {
 
     function initialize() {
         _specs = ParamTable.all();
+        resetToDefaults();
+    }
+
+    function resetToDefaults() as Void {
         for (var i = 0; i < _specs.size(); i++) {
             _values[_specs[i].name] = _specs[i].defaultValue;
         }
+    }
+
+    // A copy of all values by name, e.g. for saving.
+    function toDictionary() as Dictionary<String, Float> {
+        var copy = {} as Dictionary<String, Float>;
+        var names = _values.keys();
+        for (var i = 0; i < names.size(); i++) {
+            copy[names[i]] = _values[names[i]] as Float;
+        }
+        return copy;
     }
 
     function get(name as String) as Float {
