@@ -119,7 +119,7 @@ class MainView extends WatchUi.View {
     // Still-time label with a bar below it filling up towards the stillness target. y is the label's top.
     private function drawStillness(dc as Dc, cx as Number, y as Number, width as Number) as Void {
         var still = _monitor.movement.getStillSeconds();
-        var target = _monitor.detector.params.stillSeconds;
+        var target = _monitor.detector.params.get(Param.STILL_SECONDS).toNumber();
 
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y, Graphics.FONT_XTINY, str(Rez.Strings.Still) + " " + formatDuration(still), Graphics.TEXT_JUSTIFY_CENTER);

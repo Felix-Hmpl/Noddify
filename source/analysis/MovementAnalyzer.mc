@@ -1,7 +1,7 @@
 import Toybox.Lang;
 
-// Turns accelerometer samples into one movement value per second and tracks
-// how long the wearer has been still.
+// Turns accelerometer samples into one movement value per second and tracks how long the
+// wearer has been still and how often they fidget.
 class MovementAnalyzer {
 
     // Movement (milli-g) below which a second counts as still, until calibration sets a personal threshold.
@@ -12,11 +12,17 @@ class MovementAnalyzer {
     const RESET_AFTER_MOVING_SECONDS = 3;
     // Movement this many times above the threshold resets the timer immediately.
     const BIG_MOVE_FACTOR = 4.0;
+    // Fidget frequency is counted over this window, and reported once a minute of data exists.
+    const FIDGET_WINDOW_SECONDS = 300;
+    const FIDGET_MIN_SECONDS = 60;
 
     private var _threshold as Float = DEFAULT_THRESHOLD;
     private var _stillSeconds as Number = 0;
     private var _movingStreak as Number = 0;
     private var _lastMovement as Float? = null;
+    private var _elapsed as Number = 0;
+    // The seconds (of _elapsed) at which each movement burst in the window started.
+    private var _fidgetStarts as Array<Number> = [];
 
     function initialize() {
     }
@@ -48,16 +54,33 @@ class MovementAnalyzer {
     // Records one second. Missing data (null, e.g. in the simulator) counts as still; the
     // heart-rate condition still has to hold before anything alerts.
     function addSecond(movement as Float?) as Void {
+        _elapsed++;
         _lastMovement = movement;
+        while (_fidgetStarts.size() > 0 && _fidgetStarts[0] <= _elapsed - FIDGET_WINDOW_SECONDS) {
+            _fidgetStarts = _fidgetStarts.slice(1, null);
+        }
+
         if (movement == null || movement < _threshold) {
             _stillSeconds++;
             _movingStreak = 0;
             return;
         }
+        if (_movingStreak == 0) {
+            _fidgetStarts.add(_elapsed);
+        }
         _movingStreak++;
         if (_movingStreak >= RESET_AFTER_MOVING_SECONDS || movement >= _threshold * BIG_MOVE_FACTOR) {
             _stillSeconds = 0;
         }
+    }
+
+    // Movement bursts per minute over the last 5 minutes, or null during the first minute.
+    function getFidgetsPerMinute() as Float? {
+        if (_elapsed < FIDGET_MIN_SECONDS) {
+            return null;
+        }
+        var window = _elapsed < FIDGET_WINDOW_SECONDS ? _elapsed : FIDGET_WINDOW_SECONDS;
+        return _fidgetStarts.size() * 60.0 / window;
     }
 
     // Sets the personal still threshold from the calibrated baseline movement.

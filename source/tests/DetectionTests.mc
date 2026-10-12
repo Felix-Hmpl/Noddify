@@ -1,126 +1,200 @@
 import Toybox.Lang;
 import Toybox.Test;
 
-// Unit tests for the drowsiness detector, the alert escalation and whole scenarios.
+// Unit tests for parameters, features, the detection rule, the detector, the alert escalation
+// and whole scenarios.
 
-// Records vibrations instead of playing them.
+// --- Params ---
+
 (:test)
-class RecordingVibrator extends Vibrator {
-    var played as Array<VibeLevel> = [];
-
-    function initialize() {
-        Vibrator.initialize();
-    }
-
-    function play(level as VibeLevel) as Void {
-        if (level != VIBE_NONE) {
-            played.add(level);
-        }
-    }
+function paramsStartAtDefaults(logger as Logger) as Boolean {
+    var params = new Params();
+    Test.assertEqual(params.get(Param.HR_DROP), 6.0);
+    Test.assertEqual(params.get(Param.STILL_SECONDS), 120.0);
+    Test.assertEqual(params.get(Param.CONFIRM_SECONDS), 20.0);
+    Test.assertEqual(params.get(Param.COOLDOWN_SECONDS), 180.0);
+    return true;
 }
 
-// Shared helpers. A class, because the test runner would run (:test) functions as tests.
 (:test)
-class DetectionTestHelpers {
+function paramsAreClampedToLimits(logger as Logger) as Boolean {
+    var params = new Params();
+    params.set(Param.HR_DROP, 100.0);
+    Test.assertEqual(params.get(Param.HR_DROP), 15.0);
+    params.set(Param.HR_DROP, -3.0);
+    Test.assertEqual(params.get(Param.HR_DROP), 2.0);
+    params.set(Param.STILL_SECONDS, 300.0);
+    Test.assertEqual(params.get(Param.STILL_SECONDS), 300.0);
+    return true;
+}
 
-    static function baseline() as Baseline {
-        return new Baseline(74.0, 6.0, 35.0);
+(:test)
+function unknownParamIsIgnored(logger as Logger) as Boolean {
+    var params = new Params();
+    params.set("noSuchParam", 1.0);
+    Test.assert(params.getSpec("noSuchParam") == null);
+    return true;
+}
+
+// --- Features ---
+
+(:test)
+function monitorFeaturesAreNullBeforeCalibration(logger as Logger) as Boolean {
+    var monitor = TestSupport.newMonitor(5);
+    monitor.tick(74, 6.0, []);
+    var features = monitor.getFeatures();
+    Test.assert(!features.isCalibrated());
+    Test.assertEqual(features.get(Feature.STILL_SECONDS), 1.0);
+    Test.assert(features.get(Feature.HR_DROP) == null);
+    Test.assert(features.get(Feature.HRV_RATIO) == null);
+    return true;
+}
+
+(:test)
+function monitorFeaturesAreRelativeToBaseline(logger as Logger) as Boolean {
+    var monitor = TestSupport.newMonitor(5);
+    for (var i = 0; i < 5; i++) {
+        monitor.tick(74, 6.0, []);
     }
+    monitor.tick(64, 6.0, []);
+    var features = monitor.getFeatures();
+    Test.assert(features.isCalibrated());
+    // Average of five 74s and one 64.
+    Test.assertEqual(features.get(Feature.AVERAGE_HR), 72.333336);
+    Test.assertEqual(features.get(Feature.HR_DROP), 74.0 - 72.333336);
+    return true;
+}
 
-    // Ticks the detector n times with the same inputs and returns how many alerts fired.
-    static function tickDetector(detector as DrowsinessDetector, n as Number, stillSeconds as Number, averageHr as Float, rmssd as Float?) as Number {
-        var alerts = 0;
-        for (var i = 0; i < n; i++) {
-            if (detector.tick(baseline(), stillSeconds, averageHr, rmssd)) {
-                alerts++;
-            }
+(:test)
+function fidgetsPerMinuteCountsMovementBursts(logger as Logger) as Boolean {
+    var analyzer = new MovementAnalyzer();
+    // Two seconds of movement every 20 seconds: 3 bursts per minute.
+    for (var i = 0; i < 120; i++) {
+        analyzer.addSecond(i % 20 < 2 ? 50.0 : 5.0);
+        if (i == 30) {
+            Test.assert(analyzer.getFidgetsPerMinute() == null);
         }
-        return alerts;
     }
+    Test.assertEqual(analyzer.getFidgetsPerMinute(), 3.0);
+    return true;
+}
 
-    // Plays a whole scenario and returns the scenario second of each alert.
-    static function alertTimesOf(scenarioIndex as Number) as Array<Number> {
-        var monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new RecordingVibrator());
-        var scenario = Scenarios.all()[scenarioIndex];
-        var source = new ScenarioSource(monitor, scenario);
-        source.seedRandom();
-        var times = [] as Array<Number>;
-        for (var second = 0; second < scenario.getTotalSeconds(); second++) {
-            var before = monitor.getAlertCount();
-            source.step();
-            if (monitor.getAlertCount() > before) {
-                times.add(second);
-            }
-        }
-        return times;
+(:test)
+function fidgetsOlderThanFiveMinutesAreForgotten(logger as Logger) as Boolean {
+    var analyzer = new MovementAnalyzer();
+    for (var i = 0; i < 60; i++) {
+        analyzer.addSecond(i % 20 < 2 ? 50.0 : 5.0);
     }
+    for (var i = 0; i < 300; i++) {
+        analyzer.addSecond(5.0);
+    }
+    Test.assertEqual(analyzer.getFidgetsPerMinute(), 0.0);
+    return true;
+}
+
+// --- StillnessHeartRateRule ---
+
+(:test)
+function ruleNeedsStillnessAndHeartRateDrop(logger as Logger) as Boolean {
+    var rule = new StillnessHeartRateRule();
+    var params = new Params();
+    Test.assert(rule.isMet(TestSupport.features(120, 6.0, 1.0), params));
+    Test.assert(!rule.isMet(TestSupport.features(119, 14.0, 1.0), params));
+    Test.assert(!rule.isMet(TestSupport.features(300, 5.0, 1.0), params));
+    Test.assert(!rule.isMet(new FeatureSnapshot(true, {}), params));
+    return true;
+}
+
+(:test)
+function hrvRiseLowersRequiredDrop(logger as Logger) as Boolean {
+    var rule = new StillnessHeartRateRule();
+    var params = new Params();
+    Test.assertEqual(rule.requiredHrDrop(TestSupport.features(300, 0, 1.0), params), 6.0);
+    Test.assertEqual(rule.requiredHrDrop(TestSupport.features(300, 0, 1.2), params), 4.5);
+    Test.assertEqual(rule.requiredHrDrop(TestSupport.features(300, 0, null), params), 6.0);
+    Test.assert(rule.isMet(TestSupport.features(300, 5.0, 1.3), params));
+    return true;
+}
+
+(:test)
+function ruleFollowsChangedParams(logger as Logger) as Boolean {
+    var rule = new StillnessHeartRateRule();
+    var params = new Params();
+    params.set(Param.HR_DROP, 8.0);
+    params.set(Param.STILL_SECONDS, 200.0);
+    Test.assert(!rule.isMet(TestSupport.features(300, 7.0, 1.0), params));
+    Test.assert(!rule.isMet(TestSupport.features(150, 9.0, 1.0), params));
+    Test.assert(rule.isMet(TestSupport.features(200, 8.0, 1.0), params));
+    return true;
 }
 
 // --- DrowsinessDetector ---
 
 (:test)
 function detectorWaitsForCalibration(logger as Logger) as Boolean {
-    var detector = new DrowsinessDetector(new DetectorParams());
-    Test.assert(!detector.tick(null, 600, 50.0, 35.0));
+    var detector = new DrowsinessDetector(new StillnessHeartRateRule(), new Params());
+    Test.assert(!detector.tick(new FeatureSnapshot(false, {Feature.STILL_SECONDS => 600.0})));
     Test.assertEqual(detector.getState(), STATE_CALIBRATING);
     return true;
 }
 
 (:test)
 function detectorAlertsAfterConfirmSeconds(logger as Logger) as Boolean {
-    var detector = new DrowsinessDetector(new DetectorParams());
-    // Still long enough, 7 bpm below baseline.
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 19, 130, 67.0, 35.0), 0);
+    var detector = new DrowsinessDetector(new StillnessHeartRateRule(), new Params());
+    var drowsy = TestSupport.features(130, 7.0, 1.0);
+    Test.assertEqual(TestSupport.tickDetector(detector, 19, drowsy), 0);
     Test.assertEqual(detector.getState(), STATE_DROWSY);
-    Test.assert(detector.tick(DetectionTestHelpers.baseline(), 130, 67.0, 35.0));
+    Test.assert(detector.tick(drowsy));
     Test.assertEqual(detector.getState(), STATE_COOLDOWN);
     return true;
 }
 
 (:test)
-function detectorNeedsStillness(logger as Logger) as Boolean {
-    var detector = new DrowsinessDetector(new DetectorParams());
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 60, 119, 60.0, 35.0), 0);
+function detectorStaysAwakeWhileRuleNotMet(logger as Logger) as Boolean {
+    var detector = new DrowsinessDetector(new StillnessHeartRateRule(), new Params());
+    Test.assertEqual(TestSupport.tickDetector(detector, 60, TestSupport.features(119, 14.0, 1.0)), 0);
     Test.assertEqual(detector.getState(), STATE_AWAKE);
     return true;
 }
 
 (:test)
-function detectorNeedsHeartRateDrop(logger as Logger) as Boolean {
-    var detector = new DrowsinessDetector(new DetectorParams());
-    // Only 5 bpm below baseline and no HRV rise.
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 60, 300, 69.0, 35.0), 0);
-    return true;
-}
-
-(:test)
-function hrvRiseLowersRequiredDrop(logger as Logger) as Boolean {
-    var detector = new DrowsinessDetector(new DetectorParams());
-    Test.assertEqual(detector.requiredHrDrop(DetectionTestHelpers.baseline(), 35.0), 6.0);
-    Test.assertEqual(detector.requiredHrDrop(DetectionTestHelpers.baseline(), 42.0), 4.5);
-    Test.assertEqual(detector.requiredHrDrop(DetectionTestHelpers.baseline(), null), 6.0);
-    // 5 bpm below baseline is enough once HRV is 20% up.
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 20, 300, 69.0, 45.0), 1);
-    return true;
-}
-
-(:test)
 function interruptedConditionsRestartConfirmation(logger as Logger) as Boolean {
-    var detector = new DrowsinessDetector(new DetectorParams());
-    DetectionTestHelpers.tickDetector(detector, 15, 130, 67.0, 35.0);
-    DetectionTestHelpers.tickDetector(detector, 1, 0, 67.0, 35.0);
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 19, 130, 67.0, 35.0), 0);
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 1, 130, 67.0, 35.0), 1);
+    var detector = new DrowsinessDetector(new StillnessHeartRateRule(), new Params());
+    var drowsy = TestSupport.features(130, 7.0, 1.0);
+    TestSupport.tickDetector(detector, 15, drowsy);
+    TestSupport.tickDetector(detector, 1, TestSupport.features(0, 7.0, 1.0));
+    Test.assertEqual(TestSupport.tickDetector(detector, 19, drowsy), 0);
+    Test.assertEqual(TestSupport.tickDetector(detector, 1, drowsy), 1);
     return true;
 }
 
 (:test)
 function cooldownBlocksNextAlert(logger as Logger) as Boolean {
-    var detector = new DrowsinessDetector(new DetectorParams());
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 20, 300, 60.0, 35.0), 1);
+    var detector = new DrowsinessDetector(new StillnessHeartRateRule(), new Params());
+    var drowsy = TestSupport.features(300, 14.0, 1.0);
+    Test.assertEqual(TestSupport.tickDetector(detector, 20, drowsy), 1);
     // 180 s cooldown, then 20 s confirmation again.
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 199, 300, 60.0, 35.0), 0);
-    Test.assertEqual(DetectionTestHelpers.tickDetector(detector, 1, 300, 60.0, 35.0), 1);
+    Test.assertEqual(TestSupport.tickDetector(detector, 199, drowsy), 0);
+    Test.assertEqual(TestSupport.tickDetector(detector, 1, drowsy), 1);
+    return true;
+}
+
+// A rule that is always met, to show any rule can be plugged into the detector.
+(:test)
+class AlwaysMetRule extends DetectionRule {
+    function initialize() {
+        DetectionRule.initialize();
+    }
+
+    function isMet(features as FeatureSnapshot, params as Params) as Boolean {
+        return true;
+    }
+}
+
+(:test)
+function detectorAcceptsAnyRule(logger as Logger) as Boolean {
+    var detector = new DrowsinessDetector(new AlwaysMetRule(), new Params());
+    Test.assertEqual(TestSupport.tickDetector(detector, 20, new FeatureSnapshot(true, {})), 1);
     return true;
 }
 
@@ -165,7 +239,7 @@ function acknowledgeStopsEscalation(logger as Logger) as Boolean {
 (:test)
 function monitorVibratesOnAlert(logger as Logger) as Boolean {
     var vibrator = new RecordingVibrator();
-    var monitor = new SessionMonitor(5, vibrator);
+    var monitor = new SessionMonitor(5, vibrator, new Params());
     for (var i = 0; i < 5; i++) {
         monitor.tick(74, 6.0, []);
     }
@@ -183,20 +257,19 @@ function monitorVibratesOnAlert(logger as Logger) as Boolean {
 }
 
 // --- Scenarios ---
+// The exact alert seconds guard against unintended changes in detection behavior.
 
 (:test)
 function scenarioDozingOffAlerts(logger as Logger) as Boolean {
-    var times = DetectionTestHelpers.alertTimesOf(0);
+    var times = TestSupport.alertTimesOf(0);
     logger.debug("Dozing off alerts at " + times);
-    Test.assert(times.size() > 0);
-    // Stillness starts at 90 s and HR has dropped enough by about 180 s.
-    Test.assert(times[0] >= 200 && times[0] <= 300);
+    Test.assertEqual(times.toString(), "[225, 425]");
     return true;
 }
 
 (:test)
 function scenarioStillAwakeDoesNotAlert(logger as Logger) as Boolean {
-    var times = DetectionTestHelpers.alertTimesOf(1);
+    var times = TestSupport.alertTimesOf(1);
     logger.debug("Still, awake alerts at " + times);
     Test.assertEqual(times.size(), 0);
     return true;
@@ -204,7 +277,7 @@ function scenarioStillAwakeDoesNotAlert(logger as Logger) as Boolean {
 
 (:test)
 function scenarioRestlessTiredDoesNotAlert(logger as Logger) as Boolean {
-    var times = DetectionTestHelpers.alertTimesOf(2);
+    var times = TestSupport.alertTimesOf(2);
     logger.debug("Restless, tired alerts at " + times);
     Test.assertEqual(times.size(), 0);
     return true;
@@ -212,10 +285,9 @@ function scenarioRestlessTiredDoesNotAlert(logger as Logger) as Boolean {
 
 (:test)
 function scenarioNodAndWakeAlertsBeforeJolt(logger as Logger) as Boolean {
-    var times = DetectionTestHelpers.alertTimesOf(3);
+    var times = TestSupport.alertTimesOf(3);
     logger.debug("Nod and wake alerts at " + times);
-    Test.assert(times.size() > 0);
     // The jolt awake happens at 270 s.
-    Test.assert(times[0] < 270);
+    Test.assertEqual(times.toString(), "[225]");
     return true;
 }

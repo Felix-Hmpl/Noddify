@@ -28,7 +28,7 @@ function scenarioHoldsEndValuesAfterLastPhase(logger as Logger) as Boolean {
 
 (:test)
 function scenarioBeatsMatchHeartRateAndHrv(logger as Logger) as Boolean {
-    var monitor = new SessionMonitor(5, new RecordingVibrator());
+    var monitor = TestSupport.newMonitor(5);
     var source = new ScenarioSource(monitor, Scenarios.all()[0]);
     var heart = new HeartAnalyzer();
     var beats = 0;
