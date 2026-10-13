@@ -30,6 +30,15 @@ class MovementAnalyzer {
     // Movement in one batch of samples (milli-g): the sum over the axes of each axis's mean absolute
     // deviation. Taking the deviation per axis removes gravity but still catches slow wrist rotation.
     // Returns null when there are no samples.
+    //
+    // NOTE: This condenses one second of 25 Hz samples into one value, and that value is what the
+    // stillness detection uses and what gets recorded. The mean is one choice among several:
+    // - mean (current): overall activity in the second; a single short jerk is averaged down.
+    // - median: ignores brief spikes entirely, so a nod or twitch would barely show.
+    // - peak (largest deviation from the mean in the second): catches short jerks like a nod
+    //   jolting the arm, but is more sensitive to single noisy samples.
+    // Changing it only means changing this function (the unit tests pin the current formula).
+    // The movement threshold is calibrated from these values, so it adapts automatically.
     static function movementOf(x as Array<Number>, y as Array<Number>, z as Array<Number>) as Float? {
         if (x.size() == 0 || y.size() == 0 || z.size() == 0) {
             return null;
