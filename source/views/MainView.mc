@@ -24,6 +24,11 @@ class MainView extends WatchUi.View {
         _monitor = app.getMonitor();
         var sourceLabel = app.getSourceLabel();
 
+        if (app.getState() == SESSION_IDLE) {
+            drawStartScreen(dc);
+            return;
+        }
+
         var alerting = _monitor.isAlerting();
         var background = alerting ? Graphics.COLOR_DK_RED : Graphics.COLOR_BLACK;
         dc.setColor(background, background);
@@ -41,11 +46,15 @@ class MainView extends WatchUi.View {
         var hrHeight = dc.getFontHeight(Graphics.FONT_NUMBER_HOT);
         var smallHeight = dc.getFontHeight(Graphics.FONT_XTINY);
         var gap = h * 3 / 100;
-        var total = headerHeight + hrHeight + smallHeight + gap + smallHeight + BAR_LABEL_GAP + BAR_HEIGHT + gap + smallHeight;
+        var total = smallHeight + headerHeight + hrHeight + smallHeight + gap + smallHeight + BAR_LABEL_GAP + BAR_HEIGHT + gap + smallHeight;
         if (sourceLabel != null) {
             total += smallHeight;
         }
         var y = (h - total) / 2;
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y, Graphics.FONT_XTINY, Format.duration(_monitor.getSecond()), Graphics.TEXT_JUSTIFY_CENTER);
+        y += smallHeight;
 
         drawHeader(dc, cx, y);
         y += headerHeight;
@@ -86,6 +95,22 @@ class MainView extends WatchUi.View {
         }
     }
 
+    // Before the session: the app name and how to start.
+    private function drawStartScreen(dc as Dc) as Void {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+        var cx = dc.getWidth() / 2;
+        var cy = dc.getHeight() / 2;
+        var titleHeight = dc.getFontHeight(Graphics.FONT_MEDIUM);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - titleHeight, Graphics.FONT_MEDIUM, str(Rez.Strings.AppName), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + 4, Graphics.FONT_SMALL, str(Rez.Strings.PressStart), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + 4 + dc.getFontHeight(Graphics.FONT_SMALL), Graphics.FONT_XTINY, str(Rez.Strings.BackForMenu), Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
     private function getApp() as NoddifyApp {
         return Application.getApp() as NoddifyApp;
     }
@@ -99,6 +124,9 @@ class MainView extends WatchUi.View {
         if (_monitor.isAlerting()) {
             color = Graphics.COLOR_WHITE;
             text = str(Rez.Strings.WakeUp);
+        } else if (getApp().getState() == SESSION_STOPPED) {
+            color = Graphics.COLOR_YELLOW;
+            text = str(Rez.Strings.Paused);
         } else if (state == STATE_CALIBRATING) {
             color = Graphics.COLOR_YELLOW;
             text = str(Rez.Strings.Calibrating) + " " + formatDuration(calibrator.getElapsed()) + "/" + formatDuration(calibrator.getDuration());

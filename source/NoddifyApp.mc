@@ -1,6 +1,15 @@
 import Toybox.Application;
 import Toybox.Lang;
+import Toybox.System;
 import Toybox.WatchUi;
+
+enum SessionState {
+    // App open, session not started yet.
+    SESSION_IDLE,
+    SESSION_RUNNING,
+    // Stopped with the START/STOP button; can be resumed, saved or discarded.
+    SESSION_STOPPED
+}
 
 class NoddifyApp extends Application.AppBase {
 
@@ -8,28 +17,74 @@ class NoddifyApp extends Application.AppBase {
     // every session the app runs.
     private var _learning as LearningModel = new LearningModel("learning");
     private var _events as EventLog = new EventLog("events");
+    private var _recorder as SessionRecorder = new SessionRecorder();
+    private var _state as SessionState = SESSION_IDLE;
     private var _monitor as SessionMonitor;
-    private var _source as DataSource;
+    private var _source as DataSource? = null;
     // Name of the scenario being played in place of the sensors, or null for the real sensors.
     private var _sourceLabel as String? = null;
+    // Debug builds: the scenario to play instead of the sensors, or REAL_SENSORS_ID.
+    (:debug) private var _scenarioIndex as Number = Config.REAL_SENSORS_ID;
 
     function initialize() {
         AppBase.initialize();
-        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator(), _learning, _events);
-        _source = new SensorManager(_monitor);
+        _monitor = newMonitor();
     }
 
-    // Monitoring runs from app start to app exit. Explicit start/stop of the activity comes in step 5.
-    function onStart(state as Dictionary?) as Void {
-        _source.start();
-    }
-
+    // Closing the app with a session in progress (e.g. from the system) saves it rather than
+    // losing the data.
     function onStop(state as Dictionary?) as Void {
-        _source.stop();
+        stopSource();
+        if (_recorder.isActive()) {
+            _recorder.save(_monitor);
+        }
     }
 
     function getInitialView() {
         return [new MainView(), new MainDelegate()];
+    }
+
+    // Starts monitoring and recording with a fresh calibration.
+    function startSession() as Void {
+        _monitor = newMonitor();
+        var source = createSource(_monitor);
+        source.start();
+        _source = source;
+        _recorder.start();
+        _state = SESSION_RUNNING;
+        WatchUi.requestUpdate();
+    }
+
+    function stopSession() as Void {
+        stopSource();
+        _recorder.stop();
+        _state = SESSION_STOPPED;
+        WatchUi.requestUpdate();
+    }
+
+    function resumeSession() as Void {
+        var source = _source;
+        if (source != null) {
+            source.start();
+        }
+        _recorder.resume();
+        _state = SESSION_RUNNING;
+        WatchUi.requestUpdate();
+    }
+
+    // Saves the activity and leaves the app, like Garmin's own activities.
+    function saveSession() as Void {
+        _recorder.save(_monitor);
+        System.exit();
+    }
+
+    function discardSession() as Void {
+        _recorder.discard();
+        System.exit();
+    }
+
+    function getState() as SessionState {
+        return _state;
     }
 
     function getMonitor() as SessionMonitor {
@@ -44,20 +99,52 @@ class NoddifyApp extends Application.AppBase {
         return _sourceLabel;
     }
 
-    // Restarts the session with the real sensors (index < 0) or the scenario at index.
+    // Writes each monitored second to the recording.
+    function onMonitorTick() as Void {
+        _recorder.update(_monitor);
+    }
+
+    private function newMonitor() as SessionMonitor {
+        var monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator(), _learning, _events);
+        monitor.listener = method(:onMonitorTick);
+        return monitor;
+    }
+
+    private function stopSource() as Void {
+        var source = _source;
+        if (source != null) {
+            source.stop();
+        }
+    }
+
+    (:release)
+    private function createSource(monitor as SessionMonitor) as DataSource {
+        return new SensorManager(monitor);
+    }
+
+    (:debug)
+    private function createSource(monitor as SessionMonitor) as DataSource {
+        if (_scenarioIndex == Config.REAL_SENSORS_ID) {
+            return new SensorManager(monitor);
+        }
+        return new ScenarioSource(monitor, Scenarios.all()[_scenarioIndex]);
+    }
+
+    // Debug builds: plays the real sensors (index < 0) or the scenario at index. Before the
+    // session it starts the session; while running it restarts monitoring with the new source.
     (:debug)
     function selectSource(index as Number) as Void {
-        _source.stop();
-        _monitor = new SessionMonitor(Config.CALIBRATION_SECONDS, new Vibrator(), _learning, _events);
-        if (index < 0) {
-            _source = new SensorManager(_monitor);
-            _sourceLabel = null;
-        } else {
-            var scenario = Scenarios.all()[index];
-            _source = new ScenarioSource(_monitor, scenario);
-            _sourceLabel = scenario.name;
+        _scenarioIndex = index < 0 ? Config.REAL_SENSORS_ID : index;
+        _sourceLabel = index < 0 ? null : Scenarios.all()[index].name;
+        if (_state == SESSION_IDLE) {
+            startSession();
+        } else if (_state == SESSION_RUNNING) {
+            stopSource();
+            _monitor = newMonitor();
+            var source = createSource(_monitor);
+            source.start();
+            _source = source;
         }
-        _source.start();
         WatchUi.requestUpdate();
     }
 }

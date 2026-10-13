@@ -3,24 +3,35 @@ import Toybox.Lang;
 import Toybox.System;
 import Toybox.WatchUi;
 
-// The menu behind the Back button: log a nap, see the learned thresholds, reset them, or exit.
+// The menu behind the Back button. During a session: log a nap and end the session. Always:
+// see the learned thresholds and reset them. Before a session: exit.
 class MainMenu {
 
     // Nap length choices in minutes.
     static const NAP_MINUTES = [1, 2, 3, 5, 10, 15, 20, 30];
 
     static function show() as Void {
-        var learning = getApp().getLearning();
+        var app = getApp();
+        var state = app.getState();
+        var learning = app.getLearning();
         var params = learning.params;
         var thresholds = params.get(Param.HR_DROP).format("%.1f") + " bpm, "
             + params.get(Param.STILL_SECONDS).format("%d") + " s, "
             + learning.getFeedbackCount() + " answers";
 
         var menu = new WatchUi.Menu2({:title => Rez.Strings.AppName});
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.LogNap, null, :logNap, {}));
+        if (state != SESSION_IDLE) {
+            menu.addItem(new WatchUi.MenuItem(Rez.Strings.LogNap, null, :logNap, {}));
+        }
+        if (state == SESSION_RUNNING) {
+            menu.addItem(new WatchUi.MenuItem(Rez.Strings.EndSession, null, :endSession, {}));
+        }
         menu.addItem(new WatchUi.MenuItem(Rez.Strings.Thresholds, thresholds, :thresholds, {}));
         menu.addItem(new WatchUi.MenuItem(Rez.Strings.ResetLearning, null, :resetLearning, {}));
-        menu.addItem(new WatchUi.MenuItem(Rez.Strings.Exit, null, :exit, {}));
+        // With a session in progress, leaving goes through Save or Discard.
+        if (state == SESSION_IDLE) {
+            menu.addItem(new WatchUi.MenuItem(Rez.Strings.Exit, null, :exit, {}));
+        }
         WatchUi.pushView(menu, new MainMenuDelegate(), WatchUi.SLIDE_UP);
     }
 
@@ -47,6 +58,10 @@ class MainMenuDelegate extends WatchUi.Menu2InputDelegate {
         var id = item.getId();
         if (id == :logNap) {
             MainMenu.showNapLengths();
+        } else if (id == :endSession) {
+            WatchUi.popView(WatchUi.SLIDE_DOWN);
+            MainMenu.getApp().stopSession();
+            SessionMenu.show();
         } else if (id == :resetLearning) {
             WatchUi.pushView(new WatchUi.Confirmation(WatchUi.loadResource(Rez.Strings.ResetQuestion) as String),
                 new ResetLearningDelegate(), WatchUi.SLIDE_UP);

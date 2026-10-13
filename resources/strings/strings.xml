@@ -23,4 +23,13 @@
     <string id="ResetLearning">Reset learning</string>
     <string id="ResetQuestion">Reset learning?</string>
     <string id="Exit">Exit</string>
+    <string id="EndSession">End session</string>
+
+    <string id="PressStart">Press START</string>
+    <string id="BackForMenu">Back: menu</string>
+    <string id="Paused">Paused</string>
+    <string id="Resume">Resume</string>
+    <string id="Save">Save</string>
+    <string id="Discard">Discard</string>
+    <string id="DiscardQuestion">Discard session?</string>
 </strings>

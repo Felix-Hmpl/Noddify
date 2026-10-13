@@ -9,6 +9,8 @@ class SessionMonitor {
     var calibrator as Calibrator;
     var detector as DrowsinessDetector;
     var escalation as AlertEscalation;
+    // Called after every tick, e.g. to write the second to the activity recording.
+    var listener as Method? = null;
 
     private var _vibrator as Vibrator;
     private var _learning as LearningModel;
@@ -17,6 +19,10 @@ class SessionMonitor {
     // Session seconds at which alerts fired, and the features of the latest one.
     private var _alertSeconds as Array<Number> = [];
     private var _lastAlertFeatures as FeatureSnapshot? = null;
+    // Events of this session by type, for the summary.
+    private var _eventCounts as Dictionary<String, Number> = {};
+    // Events not yet handed to the recording, each [RecordEvent code, nap minutes].
+    private var _recordEvents as Array<Array<Number>> = [];
 
     function initialize(calibrationSeconds as Number, vibrator as Vibrator, learning as LearningModel, events as EventLog) {
         movement = new MovementAnalyzer();
@@ -47,17 +53,22 @@ class SessionMonitor {
         var wasAlerting = escalation.isActive();
         var vibe = escalation.tick();
         if (wasAlerting && !escalation.isActive() && escalation.wasUnanswered()) {
-            _events.add(EventType.UNANSWERED, _second, _lastAlertFeatures, null);
+            logEvent(EventType.UNANSWERED, _lastAlertFeatures, null);
         }
 
         var features = getFeatures();
         if (detector.tick(features)) {
             _alertSeconds.add(_second);
             _lastAlertFeatures = features;
-            _events.add(EventType.ALERT, _second, features, null);
+            logEvent(EventType.ALERT, features, null);
             vibe = escalation.start();
         }
         _vibrator.play(vibe);
+
+        var callback = listener;
+        if (callback != null) {
+            callback.invoke();
+        }
     }
 
     // The current values of all features. New features are added here and in the Feature module.
@@ -92,7 +103,7 @@ class SessionMonitor {
 
     // The answer to "Were you dozing off?" for the latest alert.
     function answerAlert(wasDozing as Boolean) as Void {
-        _events.add(wasDozing ? EventType.ANSWER_YES : EventType.ANSWER_NO, _second, _lastAlertFeatures, null);
+        logEvent(wasDozing ? EventType.ANSWER_YES : EventType.ANSWER_NO, _lastAlertFeatures, null);
         _learning.apply(wasDozing ? FEEDBACK_CONFIRMED : FEEDBACK_FALSE_ALARM);
     }
 
@@ -106,7 +117,7 @@ class SessionMonitor {
                 alerted = true;
             }
         }
-        _events.add(EventType.NAP, _second, getFeatures(), {"minutes" => minutes, "alerted" => alerted});
+        logEvent(EventType.NAP, getFeatures(), {"minutes" => minutes, "alerted" => alerted});
         _learning.apply(alerted ? FEEDBACK_LATE : FEEDBACK_MISSED);
     }
 
@@ -118,7 +129,27 @@ class SessionMonitor {
         return _alertSeconds.size();
     }
 
+    // How many events of the given type (see EventType) happened in this session.
+    function getEventCount(type as String) as Number {
+        var count = _eventCounts[type];
+        return count != null ? count : 0;
+    }
+
     function getSecond() as Number {
         return _second;
+    }
+
+    // The events since the last call, each [RecordEvent code, nap minutes], for the recording.
+    function takeRecordEvents() as Array<Array<Number>> {
+        var events = _recordEvents;
+        _recordEvents = [];
+        return events;
+    }
+
+    private function logEvent(type as String, features as FeatureSnapshot?, extra as Dictionary?) as Void {
+        _events.add(type, _second, features, extra);
+        _eventCounts[type] = getEventCount(type) + 1;
+        var napMinutes = extra != null && extra["minutes"] != null ? extra["minutes"] as Number : 0;
+        _recordEvents.add([RecordEvent.codeOf(type), napMinutes]);
     }
 }
