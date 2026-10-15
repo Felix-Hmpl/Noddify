@@ -2,6 +2,7 @@ name: Tests
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
@@ -9,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Compiles with -t and runs the (:test) functions in a headless simulator.
       # The image bundles the Connect IQ SDK, device files and simulator: https://github.com/matco/connectiq-tester
+      # v2.8.0 because v2.9.0 was built without unzip and has no SDK (monkeyc: command not found).
       - name: Run unit tests on venu3s
-        run: docker run --rm -v "$PWD":/app -w /app ghcr.io/matco/connectiq-tester:v2.9.0 venu3s
+        run: docker run --rm -v "$PWD":/app -w /app ghcr.io/matco/connectiq-tester:v2.8.0 venu3s
