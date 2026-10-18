@@ -8,6 +8,9 @@ bin/
 *.der
 *.pem
 
+# Python cache (debug tools)
+__pycache__/
+
 # Editor
 .vscode/*
 !.vscode/launch.json
