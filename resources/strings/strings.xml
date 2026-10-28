@@ -32,4 +32,5 @@
     <string id="Save">Save</string>
     <string id="Discard">Discard</string>
     <string id="DiscardQuestion">Discard session?</string>
+    <string id="SendingToPhone">Sending to phone</string>
 </strings>

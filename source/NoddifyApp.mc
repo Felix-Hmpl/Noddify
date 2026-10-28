@@ -1,6 +1,8 @@
 import Toybox.Application;
 import Toybox.Lang;
 import Toybox.System;
+import Toybox.Time;
+import Toybox.Timer;
 import Toybox.WatchUi;
 
 enum SessionState {
@@ -13,11 +15,19 @@ enum SessionState {
 
 class NoddifyApp extends Application.AppBase {
 
+    // How long saving waits for the phone transfer before the app closes anyway.
+    const SEND_TIMEOUT_MS = 8000;
+
     // Learned detection parameters and the event history, saved on the watch and shared by
     // every session the app runs.
     private var _learning as LearningModel = new LearningModel("learning");
     private var _events as EventLog = new EventLog("events");
     private var _recorder as SessionRecorder = new SessionRecorder();
+    // Saved sessions waiting for the phone app, and the link that sends them.
+    private var _outbox as PhoneOutbox = new PhoneOutbox("outbox");
+    private var _phone as PhoneSync;
+    private var _clock as SessionClock? = null;
+    private var _exitTimer as Timer.Timer? = null;
     private var _state as SessionState = SESSION_IDLE;
     private var _monitor as SessionMonitor;
     private var _source as DataSource? = null;
@@ -29,6 +39,13 @@ class NoddifyApp extends Application.AppBase {
     function initialize() {
         AppBase.initialize();
         _monitor = newMonitor();
+        _phone = new PhoneSync(_outbox);
+    }
+
+    // Sends sessions the phone app hasn't confirmed yet, e.g. when the phone was out of reach.
+    function onStart(state as Dictionary?) as Void {
+        _phone.listen();
+        _phone.sendPending(null);
     }
 
     // Closing the app with a session in progress (e.g. from the system) saves it rather than
@@ -36,6 +53,7 @@ class NoddifyApp extends Application.AppBase {
     function onStop(state as Dictionary?) as Void {
         stopSource();
         if (_recorder.isActive()) {
+            queueForPhone();
             _recorder.save(_monitor);
         }
     }
@@ -51,6 +69,7 @@ class NoddifyApp extends Application.AppBase {
         source.start();
         _source = source;
         _recorder.start();
+        _clock = new SessionClock(Time.now().value());
         _state = SESSION_RUNNING;
         WatchUi.requestUpdate();
     }
@@ -58,6 +77,10 @@ class NoddifyApp extends Application.AppBase {
     function stopSession() as Void {
         stopSource();
         _recorder.stop();
+        var clock = _clock;
+        if (clock != null) {
+            clock.pause(Time.now().value());
+        }
         _state = SESSION_STOPPED;
         WatchUi.requestUpdate();
     }
@@ -68,13 +91,28 @@ class NoddifyApp extends Application.AppBase {
             source.start();
         }
         _recorder.resume();
+        var clock = _clock;
+        if (clock != null) {
+            clock.resume(Time.now().value(), _monitor.getSecond());
+        }
         _state = SESSION_RUNNING;
         WatchUi.requestUpdate();
     }
 
-    // Saves the activity and leaves the app, like Garmin's own activities.
+    // Saves the activity, sends it to the phone app and leaves the app, like Garmin's own
+    // activities. Leaves after the transfer or SEND_TIMEOUT_MS, whichever comes first; a session
+    // that didn't make it is sent again on the next start.
     function saveSession() as Void {
+        queueForPhone();
         _recorder.save(_monitor);
+        WatchUi.pushView(new WatchUi.ProgressBar(WatchUi.loadResource(Rez.Strings.SendingToPhone) as String, null), null, WatchUi.SLIDE_IMMEDIATE);
+        var timer = new Timer.Timer();
+        timer.start(method(:exitApp), SEND_TIMEOUT_MS, false);
+        _exitTimer = timer;
+        _phone.sendPending(method(:exitApp));
+    }
+
+    function exitApp() as Void {
         System.exit();
     }
 
@@ -102,6 +140,14 @@ class NoddifyApp extends Application.AppBase {
     // Writes each monitored second to the recording.
     function onMonitorTick() as Void {
         _recorder.update(_monitor);
+    }
+
+    private function queueForPhone() as Void {
+        var clock = _clock;
+        if (clock != null) {
+            _outbox.add(SessionMessage.build(clock, Time.now().value(), _monitor));
+            _clock = null;
+        }
     }
 
     private function newMonitor() as SessionMonitor {

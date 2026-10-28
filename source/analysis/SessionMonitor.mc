@@ -23,6 +23,8 @@ class SessionMonitor {
     private var _eventCounts as Dictionary<String, Number> = {};
     // Events not yet handed to the recording, each [RecordEvent code, nap minutes].
     private var _recordEvents as Array<Array<Number>> = [];
+    // Events of this session for the phone app, see SessionMessage.
+    private var _sessionEvents as Array<Dictionary> = [];
 
     function initialize(calibrationSeconds as Number, vibrator as Vibrator, learning as LearningModel, events as EventLog) {
         movement = new MovementAnalyzer();
@@ -146,10 +148,31 @@ class SessionMonitor {
         return events;
     }
 
+    // The events of this session for the phone app, as described in SessionMessage.
+    function getSessionEvents() as Array<Dictionary> {
+        return _sessionEvents;
+    }
+
     private function logEvent(type as String, features as FeatureSnapshot?, extra as Dictionary?) as Void {
         _events.add(type, _second, features, extra);
         _eventCounts[type] = getEventCount(type) + 1;
         var napMinutes = extra != null && extra["minutes"] != null ? extra["minutes"] as Number : 0;
-        _recordEvents.add([RecordEvent.codeOf(type), napMinutes]);
+        var code = RecordEvent.codeOf(type);
+        _recordEvents.add([code, napMinutes]);
+
+        var event = {"s" => _second, "c" => code} as Dictionary;
+        if (code == RecordEvent.ALERT && features != null) {
+            var still = features.get(Feature.STILL_SECONDS);
+            var drop = features.get(Feature.HR_DROP);
+            if (still != null) {
+                event["still"] = still.toNumber();
+            }
+            if (drop != null) {
+                event["drop"] = drop;
+            }
+        } else if (code == RecordEvent.NAP) {
+            event["min"] = napMinutes;
+        }
+        _sessionEvents.add(event);
     }
 }
