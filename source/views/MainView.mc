@@ -109,6 +109,29 @@ class MainView extends WatchUi.View {
         dc.drawText(cx, cy + 4, Graphics.FONT_SMALL, str(Rez.Strings.PressStart), Graphics.TEXT_JUSTIFY_CENTER);
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy + 4 + dc.getFontHeight(Graphics.FONT_SMALL), Graphics.FONT_XTINY, str(Rez.Strings.BackForMenu), Graphics.TEXT_JUSTIFY_CENTER);
+        drawSyncStatus(dc, cx, cy + 4 + dc.getFontHeight(Graphics.FONT_SMALL) + dc.getFontHeight(Graphics.FONT_XTINY));
+    }
+
+    // Whether the sessions saved on the watch are reaching the phone app. Blank when there was
+    // nothing to send.
+    private function drawSyncStatus(dc as Dc, cx as Number, y as Number) as Void {
+        var status = getApp().getSyncStatus();
+        var color;
+        var text;
+        if (status == SYNC_SYNCING) {
+            color = Graphics.COLOR_YELLOW;
+            text = str(Rez.Strings.Syncing);
+        } else if (status == SYNC_SUCCESS) {
+            color = Graphics.COLOR_GREEN;
+            text = str(Rez.Strings.SyncSuccessful);
+        } else if (status == SYNC_FAILED) {
+            color = Graphics.COLOR_RED;
+            text = str(Rez.Strings.SyncFailed);
+        } else {
+            return;
+        }
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y + 4, Graphics.FONT_XTINY, text, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     private function getApp() as NoddifyApp {

@@ -33,4 +33,7 @@
     <string id="Discard">Discard</string>
     <string id="DiscardQuestion">Discard session?</string>
     <string id="SendingToPhone">Sending to phone</string>
+    <string id="Syncing">Syncing...</string>
+    <string id="SyncSuccessful">Sync Successful</string>
+    <string id="SyncFailed">Sync Failed</string>
 </strings>

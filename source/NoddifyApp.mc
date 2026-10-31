@@ -16,7 +16,7 @@ enum SessionState {
 class NoddifyApp extends Application.AppBase {
 
     // How long saving waits for the phone transfer before the app closes anyway.
-    const SEND_TIMEOUT_MS = 8000;
+    const SEND_TIMEOUT_MS = 10000;
 
     // Learned detection parameters and the event history, saved on the watch and shared by
     // every session the app runs.
@@ -110,6 +110,10 @@ class NoddifyApp extends Application.AppBase {
         timer.start(method(:exitApp), SEND_TIMEOUT_MS, false);
         _exitTimer = timer;
         _phone.sendPending(method(:exitApp));
+    }
+
+    function getSyncStatus() as SyncStatus {
+        return _phone.getStatus();
     }
 
     function exitApp() as Void {

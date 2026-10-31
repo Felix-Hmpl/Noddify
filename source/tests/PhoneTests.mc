@@ -87,3 +87,15 @@ function outboxDropsOldestBeyondLimit(logger as Logger) as Boolean {
     Test.assertEqual(outbox.getMessages()[0]["id"], 2);
     return true;
 }
+
+(:test)
+function syncWithEmptyOutboxReportsNothing(logger as Logger) as Boolean {
+    var sync = new PhoneSync(new PhoneOutbox(null));
+    sync.sendPending(null);
+    Test.assertEqual(sync.getStatus(), SYNC_NONE);
+    // An ack or a timeout without a running sync changes nothing.
+    sync.acknowledge(1);
+    sync.onAckTimeout();
+    Test.assertEqual(sync.getStatus(), SYNC_NONE);
+    return true;
+}
