@@ -29,11 +29,18 @@ import io.github.felixhmpl.noddify.core.AlertOutcome
 import io.github.felixhmpl.noddify.core.EventType
 import io.github.felixhmpl.noddify.core.Session
 import io.github.felixhmpl.noddify.core.Stats
+import io.github.felixhmpl.noddify.core.SyncStatus
 import java.time.LocalDate
 import java.time.ZoneId
 
 @Composable
-fun SessionsScreen(sessions: List<Session>, contentPadding: PaddingValues, onOpen: (Session) -> Unit) {
+fun SessionsScreen(
+    sessions: List<Session>,
+    sync: SyncStatus,
+    onSync: () -> Unit,
+    contentPadding: PaddingValues,
+    onOpen: (Session) -> Unit,
+) {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val byDay = remember(sessions) { sessions.groupBy { Stats.dateOf(it, zone) } }
@@ -51,7 +58,10 @@ fun SessionsScreen(sessions: List<Session>, contentPadding: PaddingValues, onOpe
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Sessions", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                Text(Format.plural(sessions.size, "session"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(Format.plural(sessions.size, "session"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SyncButton(sync, onSync)
+                }
             }
         }
         if (sessions.isEmpty()) {

@@ -1,5 +1,11 @@
 package io.github.felixhmpl.noddify.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,15 +17,29 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.felixhmpl.noddify.WatchLink
+import io.github.felixhmpl.noddify.core.SyncState
+import io.github.felixhmpl.noddify.core.SyncStatus
 
 /** A white card with the screens' standard padding. */
 @Composable
@@ -95,6 +117,39 @@ fun WatchStatusChip(state: WatchLink.State) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
             Text(text, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+/**
+ * The sync with the watch: a spinning arrow while it runs, a check when it worked and a warning
+ * when it didn't. Tapping it syncs again.
+ */
+@Composable
+fun SyncButton(status: SyncStatus, onSync: () -> Unit) {
+    val (description, tint) = when (status.state) {
+        SyncState.IDLE -> "Sync with the watch" to MaterialTheme.colorScheme.onSurfaceVariant
+        SyncState.SYNCING -> "Syncing with the watch" to MaterialTheme.colorScheme.primary
+        SyncState.SYNCED -> when (status.newSessions) {
+            0 -> "Synced, no new sessions"
+            else -> "Synced, ${Format.plural(status.newSessions, "new session")}"
+        } to NoddifyColors.Awake
+        SyncState.FAILED -> "Sync failed, tap to try again" to NoddifyColors.Unanswered
+    }
+    IconButton(onClick = onSync, enabled = status.state != SyncState.SYNCING) {
+        when (status.state) {
+            SyncState.SYNCING -> {
+                val turn by rememberInfiniteTransition(label = "sync").animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart),
+                    label = "sync rotation",
+                )
+                Icon(Icons.Filled.Refresh, description, Modifier.rotate(turn), tint = tint)
+            }
+            SyncState.SYNCED -> Icon(Icons.Filled.Check, description, tint = tint)
+            SyncState.FAILED -> Icon(Icons.Filled.Warning, description, tint = tint)
+            SyncState.IDLE -> Icon(Icons.Filled.Refresh, description, tint = tint)
         }
     }
 }

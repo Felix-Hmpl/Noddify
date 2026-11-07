@@ -99,3 +99,29 @@ function syncWithEmptyOutboxReportsNothing(logger as Logger) as Boolean {
     Test.assertEqual(sync.getStatus(), SYNC_NONE);
     return true;
 }
+
+// --- Sync requests from the phone ---
+
+(:test)
+function protocolReadsAcksAndSyncRequests(logger as Logger) as Boolean {
+    Test.assertEqual(PhoneProtocol.ackedId({"type" => "ack", "id" => 5}), 5);
+    Test.assert(PhoneProtocol.ackedId({"type" => "sync"}) == null);
+    Test.assert(PhoneProtocol.ackedId("ack") == null);
+    Test.assertEqual(PhoneProtocol.storedIds({"type" => "sync", "have" => [1, "x", 3]}).toString(), "[1, 3]");
+    Test.assertEqual(PhoneProtocol.storedIds({"type" => "sync"}).size(), 0);
+    Test.assertEqual(PhoneProtocol.storedIds({"type" => "ack", "have" => [1]}).size(), 0);
+    Test.assertEqual(PhoneProtocol.syncDone()["type"], "syncDone");
+    return true;
+}
+
+(:test)
+function outboxRemovesSessionsThePhoneHas(logger as Logger) as Boolean {
+    var outbox = new PhoneOutbox(null);
+    outbox.add({"id" => 1});
+    outbox.add({"id" => 2});
+    outbox.add({"id" => 3});
+    outbox.removeAll([1, 3, 9]);
+    Test.assertEqual(outbox.getMessages().size(), 1);
+    Test.assertEqual(outbox.getMessages()[0]["id"], 2);
+    return true;
+}

@@ -38,6 +38,12 @@ class MainActivity : ComponentActivity() {
             NoddifyTheme { NoddifyScreens(app) }
         }
     }
+
+    // Every time the app comes to the front it fetches what the watch hasn't sent yet.
+    override fun onStart() {
+        super.onStart()
+        (application as NoddifyApplication).watch.requestSync()
+    }
 }
 
 private enum class Tab { STATS, SESSIONS }
@@ -46,6 +52,7 @@ private enum class Tab { STATS, SESSIONS }
 private fun NoddifyScreens(app: NoddifyApplication) {
     val sessions by app.sessions.sessions.collectAsStateWithLifecycle()
     val watch by app.watch.state.collectAsStateWithLifecycle()
+    val sync by app.watch.sync.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(Tab.STATS) }
     var openId by rememberSaveable { mutableStateOf<Long?>(null) }
 
@@ -83,8 +90,8 @@ private fun NoddifyScreens(app: NoddifyApplication) {
         },
     ) { padding ->
         when (tab) {
-            Tab.STATS -> StatsScreen(sessions, watch, padding, loadDemo)
-            Tab.SESSIONS -> SessionsScreen(sessions, padding) { openId = it.id }
+            Tab.STATS -> StatsScreen(sessions, watch, sync, app.watch::requestSync, padding, loadDemo)
+            Tab.SESSIONS -> SessionsScreen(sessions, sync, app.watch::requestSync, padding) { openId = it.id }
         }
     }
 }

@@ -43,8 +43,8 @@ class MainMenu {
         WatchUi.pushView(menu, new NapLengthDelegate(), WatchUi.SLIDE_LEFT);
     }
 
-    static function getApp() as NoddifyApp {
-        return Application.getApp() as NoddifyApp;
+    static function getApp() as Noddify {
+        return (Application.getApp() as NoddifyApp).getNoddify();
     }
 }
 

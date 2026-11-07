@@ -21,7 +21,7 @@ class FeedbackMenuDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     function onSelect(item as WatchUi.MenuItem) as Void {
-        (Application.getApp() as NoddifyApp).getMonitor().answerAlert(item.getId() == :yes);
+        (Application.getApp() as NoddifyApp).getNoddify().getMonitor().answerAlert(item.getId() == :yes);
         WatchUi.popView(WatchUi.SLIDE_DOWN);
     }
 }

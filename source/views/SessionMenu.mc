@@ -20,8 +20,8 @@ class SessionMenu {
         WatchUi.pushView(menu, new SessionMenuDelegate(), WatchUi.SLIDE_UP);
     }
 
-    static function getApp() as NoddifyApp {
-        return Application.getApp() as NoddifyApp;
+    static function getApp() as Noddify {
+        return (Application.getApp() as NoddifyApp).getNoddify();
     }
 }
 

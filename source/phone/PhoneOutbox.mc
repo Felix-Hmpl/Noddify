@@ -4,6 +4,8 @@ import Toybox.Lang;
 // Session messages waiting for the phone app to confirm them. A message stays until the phone
 // answers with an ack for its id, so it is sent again on every app start until then; the phone
 // ignores sessions it already has. Saved on the watch, oldest dropped beyond MAX_MESSAGES.
+// Also used by the background sync service (SyncService).
+(:background)
 class PhoneOutbox {
 
     const MAX_MESSAGES = 10;
@@ -32,9 +34,14 @@ class PhoneOutbox {
 
     // Drops the message with the given id, once the phone confirmed it.
     function remove(id as Number) as Void {
+        removeAll([id]);
+    }
+
+    // Drops the messages with any of the given ids.
+    function removeAll(ids as Array<Number>) as Void {
         var kept = [] as Array<Dictionary>;
         for (var i = 0; i < _messages.size(); i++) {
-            if (_messages[i]["id"] != id) {
+            if (ids.indexOf(_messages[i]["id"]) < 0) {
                 kept.add(_messages[i]);
             }
         }

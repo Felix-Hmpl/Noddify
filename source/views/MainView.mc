@@ -134,8 +134,8 @@ class MainView extends WatchUi.View {
         dc.drawText(cx, y + 4, Graphics.FONT_XTINY, text, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    private function getApp() as NoddifyApp {
-        return Application.getApp() as NoddifyApp;
+    private function getApp() as Noddify {
+        return (Application.getApp() as NoddifyApp).getNoddify();
     }
 
     // The detector state, or calibration progress while calibrating.

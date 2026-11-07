@@ -11,9 +11,14 @@ thresholds and events; see `source/phone/SessionMessage.mc`) through Garmin Conn
 The app stores it and answers with an ack, so the watch drops it from its outbox. Sessions the
 phone didn't confirm are sent again the next time Noddify starts on the watch.
 
+Each time this app comes to the front it also asks the watch for anything still pending (the
+sync icon at the top shows how that went; tap it to sync again). The watch answers from a
+background service, so Noddify doesn't need to be open on it. The messages for this are
+described in `source/phone/PhoneProtocol.mc`.
+
 You need:
-- Garmin Connect Mobile installed, with the watch paired.
-- This app running (in the foreground or background) when the watch sends.
+- Garmin Connect Mobile installed, with the watch paired and connected.
+- This app open, or still running in the background, when the watch sends.
 
 The per-second heart rate and movement data isn't sent yet. Each session is stored as
 `<id>.json`, so a detailed timeline can be added next to it later.

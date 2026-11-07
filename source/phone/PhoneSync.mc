@@ -13,7 +13,8 @@ enum SyncStatus {
 
 // Sends the outbox to the phone app and removes each session the phone acknowledges.
 // The phone answers {"type": "ack", "id": <session id>} for every session it has stored.
-// Messages only go out while Noddify runs, so pending ones are retried on every app start.
+// While Noddify runs this handles the phone's messages; while it is closed SyncService does.
+// Pending sessions are also retried on every app start.
 //
 // The status is SYNCING from the first transmission until the phone has acknowledged every
 // session (SUCCESS) or ACK_TIMEOUT_MS passed after the last transmission without that (FAILED).
@@ -79,12 +80,29 @@ class PhoneSync {
 
     function onPhoneMessage(message as Communications.PhoneAppMessage) as Void {
         var data = message.data;
-        if (data instanceof Dictionary && "ack".equals(data["type"])) {
-            var id = data["id"];
-            if (id instanceof Number) {
-                acknowledge(id);
-            }
+        var acked = PhoneProtocol.ackedId(data);
+        if (acked != null) {
+            acknowledge(acked);
+        } else if (PhoneProtocol.SYNC.equals(PhoneProtocol.typeOf(data))) {
+            onSyncRequest(PhoneProtocol.storedIds(data));
         }
+    }
+
+    // The phone app asks for pending sessions, e.g. because it was just opened. Sessions it
+    // already has are dropped, the rest are sent, then syncDone. A transfer already under way
+    // carries on; its sessions reach the phone anyway.
+    function onSyncRequest(storedIds as Array<Number>) as Void {
+        _outbox.removeAll(storedIds);
+        if (_status == SYNC_SYNCING && _outbox.getMessages().size() == 0) {
+            finish(SYNC_SUCCESS);
+        }
+        if (!_sending) {
+            sendPending(method(:sendSyncDone));
+        }
+    }
+
+    function sendSyncDone() as Void {
+        Communications.transmit(PhoneProtocol.syncDone(), null, new Communications.ConnectionListener());
     }
 
     private function sendNext() as Void {
