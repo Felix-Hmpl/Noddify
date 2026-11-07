@@ -40,5 +40,9 @@ Debug builds have a "Load demo sessions" button on the empty stats screen, so yo
 the app without a watch. CI builds the debug APK for every change under `android/`; download
 it from the workflow run's artifacts.
 
+Debug builds are signed with `debug.keystore` in this folder, so a newer debug APK installs
+over an older one and keeps the stored sessions. That key is only for debug builds and is
+public on purpose. A release build needs its own key, which must stay out of the repository.
+
 The Connect IQ Mobile SDK is Garmin's and comes from Maven Central under Garmin's own SDK
 license.
