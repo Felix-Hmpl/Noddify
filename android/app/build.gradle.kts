@@ -20,6 +20,18 @@ android {
         buildConfigField("String", "WATCH_APP_ID", "\"6ea5d3b933f0452e85998957dcec7538\"")
     }
 
+    // Debug builds, from CI and from any computer, are all signed with this one committed key,
+    // so a newer debug APK installs over an older one and keeps its sessions. It only signs
+    // debug builds and isn't secret; a release key must never be committed.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true

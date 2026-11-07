@@ -58,8 +58,8 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    private function getApp() as NoddifyApp {
-        return Application.getApp() as NoddifyApp;
+    private function getApp() as Noddify {
+        return (Application.getApp() as NoddifyApp).getNoddify();
     }
 
     // Debug builds: without an alert, tapping opens the data source menu.

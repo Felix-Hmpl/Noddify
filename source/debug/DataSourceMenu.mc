@@ -27,7 +27,7 @@ class DataSourceMenuDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     function onSelect(item as WatchUi.MenuItem) as Void {
-        (Application.getApp() as NoddifyApp).selectSource(item.getId() as Number);
+        (Application.getApp() as NoddifyApp).getNoddify().selectSource(item.getId() as Number);
         WatchUi.popView(WatchUi.SLIDE_DOWN);
     }
 }

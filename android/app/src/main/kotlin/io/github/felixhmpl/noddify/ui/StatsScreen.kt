@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import io.github.felixhmpl.noddify.WatchLink
 import io.github.felixhmpl.noddify.core.Session
 import io.github.felixhmpl.noddify.core.Stats
+import io.github.felixhmpl.noddify.core.SyncStatus
 import io.github.felixhmpl.noddify.core.StatsRange
 import io.github.felixhmpl.noddify.core.ThresholdChange
 import java.time.LocalDate
@@ -42,6 +43,8 @@ import java.time.ZoneId
 fun StatsScreen(
     sessions: List<Session>,
     watch: WatchLink.State,
+    sync: SyncStatus,
+    onSync: () -> Unit,
     contentPadding: PaddingValues,
     onLoadDemo: (() -> Unit)?,
 ) {
@@ -56,7 +59,10 @@ fun StatsScreen(
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Noddify", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-            WatchStatusChip(watch)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WatchStatusChip(watch)
+                SyncButton(sync, onSync)
+            }
         }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             StatsRange.entries.forEachIndexed { i, option ->

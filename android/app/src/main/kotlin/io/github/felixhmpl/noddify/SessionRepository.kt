@@ -24,11 +24,12 @@ class SessionRepository(private val store: SessionStore) {
         scope.launch { lock.withLock { _sessions.value = store.loadAll() } }
     }
 
-    /** Stores the sessions; ones already stored are left as they are. */
-    suspend fun add(sessions: List<Session>) = withContext(Dispatchers.IO) {
+    /** Stores the sessions; ones already stored are left as they are. Returns how many were new. */
+    suspend fun add(sessions: List<Session>): Int = withContext(Dispatchers.IO) {
         lock.withLock {
-            sessions.forEach { store.save(it) }
+            val added = sessions.count { store.save(it) }
             _sessions.value = store.loadAll()
+            added
         }
     }
 
