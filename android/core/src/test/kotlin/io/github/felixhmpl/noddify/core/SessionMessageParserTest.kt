@@ -20,7 +20,7 @@ class SessionMessageParserTest {
         "pauses" to arrayListOf(arrayListOf(1_000, 400)),
         "events" to arrayListOf(
             hashMapOf("s" to 900, "c" to 1, "still" to 170, "drop" to 6.5f),
-            hashMapOf("s" to 920, "c" to 2),
+            hashMapOf("s" to 920, "c" to 2, "chg" to hashMapOf("hrDrop" to arrayListOf(6.0f, 5.75f), "futureParam" to arrayListOf(1f, 2f))),
             hashMapOf("s" to 1_500, "c" to 5, "min" to 12),
             hashMapOf("s" to 1_600, "c" to 99),
         ),
@@ -42,7 +42,7 @@ class SessionMessageParserTest {
         assertEquals(
             listOf(
                 Event(900, EventType.ALERT, stillSeconds = 170, hrDrop = 6.5),
-                Event(920, EventType.ANSWER_YES),
+                Event(920, EventType.ANSWER_YES, thresholdChanges = listOf(ThresholdChange(Threshold.HR_DROP, 6.0, 5.75))),
                 Event(1_500, EventType.NAP, napMinutes = 12),
             ),
             session.events,
@@ -73,6 +73,19 @@ class SessionMessageParserTest {
             session.alerts().map { it.outcome },
         )
         assertEquals(560, session.alerts()[1].outcomeSecond)
+    }
+
+    @Test
+    fun alertsCarryTheThresholdChangesOfTheirAnswer() {
+        val change = ThresholdChange(Threshold.STILL_SECONDS, 120.0, 135.0)
+        val session = SessionMessageParser.parse(message)!!.copy(
+            events = listOf(
+                Event(100, EventType.ALERT),
+                Event(110, EventType.ANSWER_NO, thresholdChanges = listOf(change)),
+                Event(500, EventType.ALERT),
+            ),
+        )
+        assertEquals(listOf(listOf(change), emptyList()), session.alerts().map { it.thresholdChanges })
     }
 
     @Test

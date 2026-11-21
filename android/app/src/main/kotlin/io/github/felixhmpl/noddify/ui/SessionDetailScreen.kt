@@ -2,6 +2,7 @@ package io.github.felixhmpl.noddify.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,7 +32,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +48,8 @@ import io.github.felixhmpl.noddify.core.AlertOutcome
 import io.github.felixhmpl.noddify.core.EventType
 import io.github.felixhmpl.noddify.core.Session
 import io.github.felixhmpl.noddify.core.Stats
+import io.github.felixhmpl.noddify.core.Threshold
+import io.github.felixhmpl.noddify.core.ThresholdChange
 import io.github.felixhmpl.noddify.core.TimelineBuilder
 import java.time.LocalDate
 import java.time.ZoneId
@@ -146,8 +155,14 @@ private fun LineLegend(dotted: Boolean, label: String) {
     }
 }
 
-/** One line of "What happened". */
-private data class Happening(val offset: Int, val kind: Kind, val title: String, val detail: String?) {
+/** One line of "What happened". [changes]: how the event's feedback moved the learned thresholds. */
+private data class Happening(
+    val offset: Int,
+    val kind: Kind,
+    val title: String,
+    val detail: String?,
+    val changes: List<ThresholdChange> = emptyList(),
+) {
     enum class Kind { PLAIN, ALERT, NAP }
 }
 
@@ -165,10 +180,10 @@ private fun happenings(session: Session, alerts: List<Alert>): List<Happening> {
             alert.stillSeconds?.let { "Still for ${Format.duration(it.toLong())}" },
             alert.hrDrop?.let { "HR ${Format.decimal(it)} bpm below baseline" },
         ).joinToString(" · ").ifEmpty { null }
-        list += Happening(session.wallOffset(alert.second), Happening.Kind.ALERT, "Alert · $answer", detail)
+        list += Happening(session.wallOffset(alert.second), Happening.Kind.ALERT, "Alert · $answer", detail, alert.thresholdChanges)
     }
     session.events.filter { it.type == EventType.NAP }.forEach { nap ->
-        list += Happening(session.wallOffset(nap.second), Happening.Kind.NAP, "Nap logged · ${nap.napMinutes ?: 0} min", null)
+        list += Happening(session.wallOffset(nap.second), Happening.Kind.NAP, "Nap logged · ${nap.napMinutes ?: 0} min", null, nap.thresholdChanges)
     }
     session.pauses.fold(0) { before, pause ->
         list += Happening(pause.atSecond + before, Happening.Kind.PLAIN, "Paused for ${Format.duration(pause.seconds.toLong())}", null)
@@ -198,8 +213,43 @@ private fun EventRow(happening: Happening, sessionStart: Long, zone: ZoneId) {
         Column(Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(happening.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             happening.detail?.let { Caption(it) }
+            if (happening.changes.isNotEmpty()) ThresholdChanges(happening.changes)
         }
     }
+}
+
+/** "Thresholds changed", tapped open to show each change, e.g. "HR drop 6 → 7 bpm". */
+@Composable
+private fun ThresholdChanges(changes: List<ThresholdChange>) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val color = MaterialTheme.colorScheme.primary
+    Row(
+        Modifier.clip(MaterialTheme.shapes.small).clickable { expanded = !expanded }.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Thresholds changed",
+            style = MaterialTheme.typography.bodySmall,
+            color = color,
+            fontWeight = FontWeight.Medium,
+        )
+        Icon(
+            if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+            contentDescription = if (expanded) "Hide threshold changes" else "Show threshold changes",
+            Modifier.size(18.dp),
+            tint = color,
+        )
+    }
+    if (expanded) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            changes.forEach { Caption(describe(it)) }
+        }
+    }
+}
+
+private fun describe(change: ThresholdChange): String = when (change.param) {
+    Threshold.HR_DROP -> "HR drop threshold ${Format.trimmed(change.from, 2)} → ${Format.trimmed(change.to, 2)} bpm"
+    Threshold.STILL_SECONDS -> "Stillness threshold ${Format.trimmed(change.from, 1)} → ${Format.trimmed(change.to, 1)} s"
 }
 
 @Composable
