@@ -45,9 +45,21 @@ function messageHoldsSessionAndEvents(logger as Logger) as Boolean {
     Test.assertEqual(events[0]["s"], alertSecond);
     Test.assert((events[0]["still"] as Number) > 0);
     Test.assert((events[0]["drop"] as Float) > 0);
+    Test.assert(!events[0].hasKey("chg"));
     Test.assertEqual(events[1]["c"], RecordEvent.ANSWER_YES);
+    // The answer carries the threshold changes it caused: [old, new] by parameter.
+    var answerChanges = events[1]["chg"] as Dictionary<String, Array<Float>>;
+    Test.assertEqual(answerChanges.size(), 2);
+    TestSupport.assertNear(answerChanges[Param.HR_DROP][0], 6.0);
+    TestSupport.assertNear(answerChanges[Param.HR_DROP][1], 5.75);
+    TestSupport.assertNear(answerChanges[Param.STILL_SECONDS][0], 120.0);
+    TestSupport.assertNear(answerChanges[Param.STILL_SECONDS][1], 116.0);
     Test.assertEqual(events[2]["c"], RecordEvent.NAP);
     Test.assertEqual(events[2]["min"], 15);
+    // The nap's changes start where the answer's ended.
+    var napChanges = events[2]["chg"] as Dictionary<String, Array<Float>>;
+    TestSupport.assertNear(napChanges[Param.HR_DROP][0], 5.75);
+    Test.assert(napChanges[Param.HR_DROP][1] < 5.75);
     return true;
 }
 

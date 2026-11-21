@@ -17,6 +17,23 @@ function falseAlarmMakesLessSensitive(logger as Logger) as Boolean {
 }
 
 (:test)
+function applyReturnsTheChangesItMade(logger as Logger) as Boolean {
+    var learning = new LearningModel(null);
+    var changes = learning.apply(FEEDBACK_FALSE_ALARM);
+    Test.assertEqual(changes.size(), 2);
+    Test.assertEqual(changes[Param.HR_DROP][0], 6.0);
+    Test.assertEqual(changes[Param.HR_DROP][1], 7.0);
+    Test.assertEqual(changes[Param.STILL_SECONDS][0], 120.0);
+    Test.assertEqual(changes[Param.STILL_SECONDS][1], 135.0);
+    // At the upper limits nothing moves any more, so nothing is reported.
+    for (var i = 0; i < 200; i++) {
+        learning.apply(FEEDBACK_FALSE_ALARM);
+    }
+    Test.assertEqual(learning.apply(FEEDBACK_FALSE_ALARM).size(), 0);
+    return true;
+}
+
+(:test)
 function confirmedAlertNudgesMoreSensitive(logger as Logger) as Boolean {
     var learning = new LearningModel(null);
     learning.apply(FEEDBACK_CONFIRMED);

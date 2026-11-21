@@ -13,7 +13,8 @@ import Toybox.Lang;
 //   params      learned parameters at the end: stillSeconds, hrDrop
 //   pauses      [[session second, length in seconds], ...]
 //   events      [{"s": session second, "c": RecordEvent code, ...}, ...] with, for alerts,
-//               "still" (seconds) and "drop" (bpm below baseline) and, for naps, "min" (minutes)
+//               "still" (seconds) and "drop" (bpm below baseline) and, for naps, "min" (minutes).
+//               Answers and naps that moved learned parameters add "chg": {name: [old, new], ...}
 module SessionMessage {
 
     const TYPE = "session";

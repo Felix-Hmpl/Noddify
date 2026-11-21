@@ -35,17 +35,27 @@ class LearningModel {
         load();
     }
 
-    function apply(kind as FeedbackKind) as Void {
+    // Applies the feedback and returns what it changed: [old value, new value] by parameter name.
+    // Parameters that didn't move, e.g. because they were already at a limit, are left out.
+    function apply(kind as FeedbackKind) as Dictionary<String, Array<Float>> {
+        var changes = {} as Dictionary<String, Array<Float>>;
         var factor = getStepFactor();
         var specs = params.getSpecs();
         for (var i = 0; i < specs.size(); i++) {
             var step = stepFor(specs[i], kind);
             if (step != 0.0) {
-                params.set(specs[i].name, params.get(specs[i].name) + step * factor);
+                var name = specs[i].name;
+                var old = params.get(name);
+                params.set(name, old + step * factor);
+                var updated = params.get(name);
+                if (updated != old) {
+                    changes[name] = [old, updated];
+                }
             }
         }
         _feedbackCount++;
         save();
+        return changes;
     }
 
     function getStepFactor() as Float {

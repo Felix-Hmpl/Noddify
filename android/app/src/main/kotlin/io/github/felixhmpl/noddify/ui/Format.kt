@@ -35,6 +35,10 @@ object Format {
 
     fun decimal(value: Double): String = String.format(Locale.ENGLISH, "%.1f", value)
 
+    /** [value] with at most [decimals] decimals and no trailing zeros: "6", "5.75". */
+    fun trimmed(value: Double, decimals: Int): String =
+        String.format(Locale.ENGLISH, "%.${decimals}f", value).let { if (decimals > 0) it.trimEnd('0').trimEnd('.') else it }
+
     /** "+0.3" or "−0.4". */
     fun signedDecimal(value: Double): String = (if (value < 0) "−" else "+") + decimal(abs(value))
 

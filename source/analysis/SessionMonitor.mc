@@ -55,14 +55,14 @@ class SessionMonitor {
         var wasAlerting = escalation.isActive();
         var vibe = escalation.tick();
         if (wasAlerting && !escalation.isActive() && escalation.wasUnanswered()) {
-            logEvent(EventType.UNANSWERED, _lastAlertFeatures, null);
+            logEvent(EventType.UNANSWERED, _lastAlertFeatures, null, null);
         }
 
         var features = getFeatures();
         if (detector.tick(features)) {
             _alertSeconds.add(_second);
             _lastAlertFeatures = features;
-            logEvent(EventType.ALERT, features, null);
+            logEvent(EventType.ALERT, features, null, null);
             vibe = escalation.start();
         }
         _vibrator.play(vibe);
@@ -105,8 +105,8 @@ class SessionMonitor {
 
     // The answer to "Were you dozing off?" for the latest alert.
     function answerAlert(wasDozing as Boolean) as Void {
-        logEvent(wasDozing ? EventType.ANSWER_YES : EventType.ANSWER_NO, _lastAlertFeatures, null);
-        _learning.apply(wasDozing ? FEEDBACK_CONFIRMED : FEEDBACK_FALSE_ALARM);
+        var changes = _learning.apply(wasDozing ? FEEDBACK_CONFIRMED : FEEDBACK_FALSE_ALARM);
+        logEvent(wasDozing ? EventType.ANSWER_YES : EventType.ANSWER_NO, _lastAlertFeatures, null, changes);
     }
 
     // A nap the wearer logged, ending now and lasting about the given minutes. If an alert fired
@@ -119,8 +119,8 @@ class SessionMonitor {
                 alerted = true;
             }
         }
-        logEvent(EventType.NAP, getFeatures(), {"minutes" => minutes, "alerted" => alerted});
-        _learning.apply(alerted ? FEEDBACK_LATE : FEEDBACK_MISSED);
+        var changes = _learning.apply(alerted ? FEEDBACK_LATE : FEEDBACK_MISSED);
+        logEvent(EventType.NAP, getFeatures(), {"minutes" => minutes, "alerted" => alerted}, changes);
     }
 
     function isAlerting() as Boolean {
@@ -153,7 +153,9 @@ class SessionMonitor {
         return _sessionEvents;
     }
 
-    private function logEvent(type as String, features as FeatureSnapshot?, extra as Dictionary?) as Void {
+    // changes: the threshold changes the event's feedback caused, as returned by LearningModel.apply.
+    private function logEvent(type as String, features as FeatureSnapshot?, extra as Dictionary?,
+            changes as Dictionary<String, Array<Float>>?) as Void {
         _events.add(type, _second, features, extra);
         _eventCounts[type] = getEventCount(type) + 1;
         var napMinutes = extra != null && extra["minutes"] != null ? extra["minutes"] as Number : 0;
@@ -172,6 +174,9 @@ class SessionMonitor {
             }
         } else if (code == RecordEvent.NAP) {
             event["min"] = napMinutes;
+        }
+        if (changes != null && changes.size() > 0) {
+            event["chg"] = changes;
         }
         _sessionEvents.add(event);
     }

@@ -28,14 +28,18 @@ object DemoSessions {
                 events += Event(second, EventType.ALERT, stillSeconds = stillSeconds, hrDrop = hrDrop + random.nextDouble(3.0))
                 when (random.nextInt(10)) {
                     in 0..5 -> {
-                        events += Event(second + 20, EventType.ANSWER_YES)
-                        still = (still - 4).coerceAtLeast(60.0)
-                        hrDrop = (hrDrop - 0.25).coerceAtLeast(2.0)
+                        val newStill = (still - 4).coerceAtLeast(60.0)
+                        val newHrDrop = (hrDrop - 0.25).coerceAtLeast(2.0)
+                        events += Event(second + 20, EventType.ANSWER_YES, thresholdChanges = changes(hrDrop, newHrDrop, still, newStill))
+                        still = newStill
+                        hrDrop = newHrDrop
                     }
                     in 6..8 -> {
-                        events += Event(second + 15, EventType.ANSWER_NO)
-                        still = (still + 15).coerceAtMost(600.0)
-                        hrDrop = (hrDrop + 1).coerceAtMost(15.0)
+                        val newStill = (still + 15).coerceAtMost(600.0)
+                        val newHrDrop = (hrDrop + 1).coerceAtMost(15.0)
+                        events += Event(second + 15, EventType.ANSWER_NO, thresholdChanges = changes(hrDrop, newHrDrop, still, newStill))
+                        still = newStill
+                        hrDrop = newHrDrop
                     }
                     else -> events += Event(second + 60, EventType.UNANSWERED)
                 }
@@ -64,4 +68,9 @@ object DemoSessions {
         }
         return sessions
     }
+
+    private fun changes(hrDrop: Double, newHrDrop: Double, still: Double, newStill: Double) = listOfNotNull(
+        ThresholdStep(Threshold.HR_DROP, hrDrop, newHrDrop).takeIf { hrDrop != newHrDrop },
+        ThresholdStep(Threshold.STILL_SECONDS, still, newStill).takeIf { still != newStill },
+    )
 }

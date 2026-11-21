@@ -47,7 +47,11 @@ data class Session(
                 EventType.ANSWER_YES, EventType.ANSWER_NO, EventType.UNANSWERED -> {
                     val index = alerts.indexOfLast { it.outcome == AlertOutcome.OPEN }
                     if (index >= 0) {
-                        alerts[index] = alerts[index].copy(outcome = outcomeOf(event.type), outcomeSecond = event.second)
+                        alerts[index] = alerts[index].copy(
+                            outcome = outcomeOf(event.type),
+                            outcomeSecond = event.second,
+                            thresholdChanges = event.thresholdChanges,
+                        )
                     }
                 }
                 EventType.NAP -> {}
@@ -78,7 +82,26 @@ data class Event(
     val hrDrop: Double? = null,
     /** Naps: the length the wearer entered, in minutes. The nap ended when it was logged. */
     val napMinutes: Int? = null,
+    /** Answers and naps: how the feedback moved the learned thresholds. */
+    val thresholdChanges: List<ThresholdStep> = emptyList(),
 )
+
+/** A learned threshold that feedback moved from [from] to [to]. */
+@Serializable
+data class ThresholdStep(val param: Threshold, val from: Double, val to: Double)
+
+/** The learned thresholds, by their parameter names on the watch (source/detection/Params.mc). */
+@Serializable
+enum class Threshold(val key: String) {
+    /** Required heart rate drop below baseline, in bpm. */
+    HR_DROP("hrDrop"),
+    /** Stillness needed before an alert, in seconds. */
+    STILL_SECONDS("stillSeconds");
+
+    companion object {
+        fun ofKey(key: String): Threshold? = entries.firstOrNull { it.key == key }
+    }
+}
 
 /** Event types with the codes the watch uses (source/recording/RecordEvent.mc). */
 enum class EventType(val code: Int) {
@@ -102,4 +125,6 @@ data class Alert(
     val outcome: AlertOutcome = AlertOutcome.OPEN,
     /** Session second of the answer, or of giving up when unanswered. */
     val outcomeSecond: Int? = null,
+    /** How the answer moved the learned thresholds. */
+    val thresholdChanges: List<ThresholdStep> = emptyList(),
 )
