@@ -70,6 +70,19 @@ class StatsTest {
     }
 
     @Test
+    fun storeLoadsSessionsSavedBeforeThresholdSteps() {
+        val directory = Files.createTempDirectory("sessions").toFile()
+        // Saved by an app version whose events had no thresholdChanges.
+        java.io.File(directory, "1700000000.json").writeText(
+            """{"id":1700000000,"formatVersion":1,"start":1700000000,"end":1700003600,"seconds":3600,""" +
+                """"events":[{"second":900,"type":"ALERT"},{"second":920,"type":"ANSWER_NO"}]}""",
+        )
+        val session = SessionStore(directory).loadAll().single()
+        assertEquals(listOf(emptyList<ThresholdStep>()), session.alerts().map { it.thresholdChanges })
+        directory.deleteRecursively()
+    }
+
+    @Test
     fun storeKeepsEachSessionOnce() {
         val directory = Files.createTempDirectory("sessions").toFile()
         val store = SessionStore(directory)
