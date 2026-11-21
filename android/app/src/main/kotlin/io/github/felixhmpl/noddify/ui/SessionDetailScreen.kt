@@ -49,7 +49,7 @@ import io.github.felixhmpl.noddify.core.EventType
 import io.github.felixhmpl.noddify.core.Session
 import io.github.felixhmpl.noddify.core.Stats
 import io.github.felixhmpl.noddify.core.Threshold
-import io.github.felixhmpl.noddify.core.ThresholdChange
+import io.github.felixhmpl.noddify.core.ThresholdStep
 import io.github.felixhmpl.noddify.core.TimelineBuilder
 import java.time.LocalDate
 import java.time.ZoneId
@@ -161,7 +161,7 @@ private data class Happening(
     val kind: Kind,
     val title: String,
     val detail: String?,
-    val changes: List<ThresholdChange> = emptyList(),
+    val changes: List<ThresholdStep> = emptyList(),
 ) {
     enum class Kind { PLAIN, ALERT, NAP }
 }
@@ -220,7 +220,7 @@ private fun EventRow(happening: Happening, sessionStart: Long, zone: ZoneId) {
 
 /** "Thresholds changed", tapped open to show each change, e.g. "HR drop 6 → 7 bpm". */
 @Composable
-private fun ThresholdChanges(changes: List<ThresholdChange>) {
+private fun ThresholdChanges(changes: List<ThresholdStep>) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val color = MaterialTheme.colorScheme.primary
     Row(
@@ -247,7 +247,7 @@ private fun ThresholdChanges(changes: List<ThresholdChange>) {
     }
 }
 
-private fun describe(change: ThresholdChange): String = when (change.param) {
+private fun describe(change: ThresholdStep): String = when (change.param) {
     Threshold.HR_DROP -> "HR drop threshold ${Format.trimmed(change.from, 2)} → ${Format.trimmed(change.to, 2)} bpm"
     Threshold.STILL_SECONDS -> "Stillness threshold ${Format.trimmed(change.from, 1)} → ${Format.trimmed(change.to, 1)} s"
 }

@@ -42,7 +42,7 @@ class SessionMessageParserTest {
         assertEquals(
             listOf(
                 Event(900, EventType.ALERT, stillSeconds = 170, hrDrop = 6.5),
-                Event(920, EventType.ANSWER_YES, thresholdChanges = listOf(ThresholdChange(Threshold.HR_DROP, 6.0, 5.75))),
+                Event(920, EventType.ANSWER_YES, thresholdChanges = listOf(ThresholdStep(Threshold.HR_DROP, 6.0, 5.75))),
                 Event(1_500, EventType.NAP, napMinutes = 12),
             ),
             session.events,
@@ -77,7 +77,7 @@ class SessionMessageParserTest {
 
     @Test
     fun alertsCarryTheThresholdChangesOfTheirAnswer() {
-        val change = ThresholdChange(Threshold.STILL_SECONDS, 120.0, 135.0)
+        val change = ThresholdStep(Threshold.STILL_SECONDS, 120.0, 135.0)
         val session = SessionMessageParser.parse(message)!!.copy(
             events = listOf(
                 Event(100, EventType.ALERT),

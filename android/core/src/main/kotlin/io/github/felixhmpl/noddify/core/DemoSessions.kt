@@ -70,7 +70,7 @@ object DemoSessions {
     }
 
     private fun changes(hrDrop: Double, newHrDrop: Double, still: Double, newStill: Double) = listOfNotNull(
-        ThresholdChange(Threshold.HR_DROP, hrDrop, newHrDrop).takeIf { hrDrop != newHrDrop },
-        ThresholdChange(Threshold.STILL_SECONDS, still, newStill).takeIf { still != newStill },
+        ThresholdStep(Threshold.HR_DROP, hrDrop, newHrDrop).takeIf { hrDrop != newHrDrop },
+        ThresholdStep(Threshold.STILL_SECONDS, still, newStill).takeIf { still != newStill },
     )
 }

@@ -83,12 +83,12 @@ data class Event(
     /** Naps: the length the wearer entered, in minutes. The nap ended when it was logged. */
     val napMinutes: Int? = null,
     /** Answers and naps: how the feedback moved the learned thresholds. */
-    val thresholdChanges: List<ThresholdChange> = emptyList(),
+    val thresholdChanges: List<ThresholdStep> = emptyList(),
 )
 
 /** A learned threshold that feedback moved from [from] to [to]. */
 @Serializable
-data class ThresholdChange(val param: Threshold, val from: Double, val to: Double)
+data class ThresholdStep(val param: Threshold, val from: Double, val to: Double)
 
 /** The learned thresholds, by their parameter names on the watch (source/detection/Params.mc). */
 @Serializable
@@ -126,5 +126,5 @@ data class Alert(
     /** Session second of the answer, or of giving up when unanswered. */
     val outcomeSecond: Int? = null,
     /** How the answer moved the learned thresholds. */
-    val thresholdChanges: List<ThresholdChange> = emptyList(),
+    val thresholdChanges: List<ThresholdStep> = emptyList(),
 )

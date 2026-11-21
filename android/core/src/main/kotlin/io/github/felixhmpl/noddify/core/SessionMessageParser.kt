@@ -56,13 +56,13 @@ object SessionMessageParser {
     }
 
     /** `{name: [old, new], ...}`, in the watch's parameter order. Unknown names are skipped. */
-    private fun parseChanges(value: Any?): List<ThresholdChange> {
+    private fun parseChanges(value: Any?): List<ThresholdStep> {
         val map = value as? Map<*, *> ?: return emptyList()
         return Threshold.entries.mapNotNull { threshold ->
             val pair = map[threshold.key] as? List<*> ?: return@mapNotNull null
             val from = (pair.getOrNull(0) as? Number)?.toDouble() ?: return@mapNotNull null
             val to = (pair.getOrNull(1) as? Number)?.toDouble() ?: return@mapNotNull null
-            ThresholdChange(threshold, from, to)
+            ThresholdStep(threshold, from, to)
         }
     }
 
